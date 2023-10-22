@@ -7,19 +7,19 @@ type input interface {
 }
 
 type primitive struct {
-	name string
+	name   string
 	action func(*machine)
 }
 
 func makePrim(n string, f func(*machine)) *primitive {
-	return &primitive{n,f}
+	return &primitive{n, f}
 }
 
 type machine struct {
-	dt map[byte]addr
-	mem map[addr]slot
-	here addr
-	input input
+	dt        map[byte]addr
+	mem       map[addr]slot
+	here      addr
+	input     input
 	psPointer addr
 }
 
@@ -28,7 +28,7 @@ func newMachine(input input) *machine {
 	mem := make(map[addr]slot)
 	here := addr{100}
 	psPointer := addr{50000}
-	return &machine{dt,mem,here,input,psPointer}
+	return &machine{dt, mem, here, input, psPointer}
 }
 
 func (m *machine) installQuarterPrim(c byte, p *primitive) {
@@ -41,7 +41,7 @@ func (m *machine) installPrim(p *primitive) addr {
 	// for now we will just write the native-slot code
 	a := m.here
 	slot := native{p.action}
-	comma(m,slot)
+	comma(m, slot)
 	return a
 }
 
@@ -54,7 +54,7 @@ func comma(m *machine, s slot) {
 func (m *machine) lookupDisaptch(c byte) addr {
 	addr, ok := m.dt[c]
 	if !ok {
-		panic(fmt.Sprintf("lookupDisaptch: %c",c))
+		panic(fmt.Sprintf("lookupDisaptch: %c", c))
 	}
 	return addr
 }
@@ -62,7 +62,7 @@ func (m *machine) lookupDisaptch(c byte) addr {
 func (m *machine) lookupMem(a addr) slot {
 	slot, ok := m.mem[a]
 	if !ok {
-		panic(fmt.Sprintf("lookupMem: %a",a))
+		panic(fmt.Sprintf("lookupMem: %a", a))
 	}
 	return slot
 }
@@ -78,7 +78,6 @@ func (m *machine) executeQ(c byte) {
 	a := m.lookupDisaptch(c)
 	a.execute(m)
 }
-
 
 func (m *machine) getChar() byte {
 	return m.input.getChar()
@@ -107,13 +106,12 @@ func charOfValue(v value) byte {
 	return byte(v.i % 256)
 }
 
-
 type addr struct {
 	i uint16
 }
 
 func (a addr) next() addr {
-	return addr{a.i+1}
+	return addr{a.i + 1}
 }
 
 func (a addr) execute(m *machine) {

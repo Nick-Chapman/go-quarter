@@ -5,7 +5,7 @@ import "os"
 func readFile(filename string) inputBytes {
 	bs, err := os.ReadFile(filename)
 	check(err)
-	return inputBytes{bs,0}
+	return inputBytes{bs, 0}
 }
 
 func check(e error) {
@@ -16,13 +16,13 @@ func check(e error) {
 
 type inputBytes struct {
 	bs []byte
-	n int
+	n  int
 }
 
 func (x *inputBytes) getChar() byte {
 	// TODO: handle EOF better
 	n := x.n
 	c := x.bs[n]
-	x.n = n+1
+	x.n = n + 1
 	return c
 }

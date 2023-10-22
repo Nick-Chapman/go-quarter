@@ -6,8 +6,8 @@ func main() {
 	fmt.Printf("*go-quarter*\n")
 	input := readFile("../quarter-forth/f/quarter.q")
 	m := newMachine(&input)
-	m.installQuarterPrim('^',makePrim("key",key))
-	m.installQuarterPrim('.',makePrim("emit",emit))
+	m.installQuarterPrim('^', makePrim("key", key))
+	m.installQuarterPrim('.', makePrim("emit", emit))
 	m.run()
 	fmt.Printf("*go-quarter*DONE\n")
 }
