@@ -22,25 +22,16 @@ type machine struct {
 	rsPointer addr
 }
 
-func newMachine(key, dispatch, execute native) *machine {
-	dt := make(map[byte]addr)
+func newMachine(key, dispatch native) *machine {
 	mem := make(map[addr]slot)
-	here := addr{100}
-	psPointer := addr{50000}
-	rsPointer := addr{60000}
-
-	mem[addr{0}] = key
-	mem[addr{1}] = dispatch
-	mem[addr{2}] = execute
-	mem[addr{3}] = jump{addr{0}}
-
+	mem[addr{0}] = kdxLoop{key, dispatch}
 	return &machine{
 		steps:     0,
-		dt:        dt,
+		dt:        make(map[byte]addr),
 		mem:       mem,
-		here:      here,
-		psPointer: psPointer,
-		rsPointer: rsPointer,
+		here:      addr{100},
+		psPointer: addr{50000},
+		rsPointer: addr{60000},
 	}
 }
 
@@ -161,7 +152,7 @@ func addrOfValue(v value) addr {
 	return addr{uint16(v.i)}
 }
 
-type slot interface { // native,ret,jump,value
+type slot interface {
 	executeSlot(*machine, addr) addr
 	toLiteral() value
 }
@@ -169,29 +160,37 @@ type slot interface { // native,ret,jump,value
 type ret struct {
 }
 
-type jump struct {
-	dest addr
+type kdxLoop struct {
+	key      native
+	dispatch native
+}
+
+// executeSlot...
+
+func (x kdxLoop) executeSlot(m *machine, a addr) addr {
+	x.key(m)
+	x.dispatch(m)
+	m.rsPush(valueOfAddr(addr{0}))
+	return addrOfValue(m.pop())
 }
 
 func (native native) executeSlot(m *machine, a addr) addr {
-	m.rsPush(valueOfAddr(a))
 	native(m)
-	return addrOfValue(m.rsPop())
-}
-func (ret) executeSlot(m *machine, a addr) addr {
-	return addrOfValue(m.rsPop())
+	return a
 }
 
-func (jump jump) executeSlot(*machine, addr) addr {
-	return jump.dest
+func (ret) executeSlot(m *machine, a addr) addr {
+	return addrOfValue(m.rsPop())
 }
 
 func (value) executeSlot(*machine, addr) addr {
 	panic("value/execute")
 }
 
-func (v value) toLiteral() value {
-	return v
+// toLiteral...
+
+func (kdxLoop) toLiteral() value {
+	panic("kdxLoop/toLiteral")
 }
 
 func (native) toLiteral() value {
@@ -202,6 +201,6 @@ func (ret) toLiteral() value {
 	panic("ret/toLiteral")
 }
 
-func (jump) toLiteral() value {
-	panic("jump/toLiteral")
+func (v value) toLiteral() value {
+	return v
 }

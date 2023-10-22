@@ -14,12 +14,12 @@ func main() {
 		m.push(valueOfChar(c))
 	}
 
-	m := newMachine(key, dispatch, execute)
+	m := newMachine(key, dispatch)
 
 	m.installQuarterPrim('^', "key", key)
 	m.installQuarterPrim('.', "emit", emit)
 	m.installQuarterPrim('?', "dispatch", dispatch)
-	m.installQuarterPrim('V', "execute", execute)
+	//m.installQuarterPrim('V', "execute", execute)
 	m.installQuarterPrim('M', "cr", cr)
 	m.installQuarterPrim(10, "nop", nop)
 	m.run()
@@ -55,13 +55,6 @@ func dispatch(m *machine) {
 	c := charOfValue(m.pop())
 	a := m.lookupDisaptch(c)
 	m.push(valueOfAddr(a))
-}
-
-func execute(m *machine) {
-	//fmt.Printf("execute\n")
-	a := addrOfValue(m.pop())
-	//fmt.Printf("execute -> %v\n",a)
-	m.rsPush(valueOfAddr(a))
 }
 
 func emit(m *machine) {
