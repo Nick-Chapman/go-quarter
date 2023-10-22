@@ -26,42 +26,41 @@ func main() {
 	m.installQuarterPrim('\n', "NopNL", Nop)
 	m.installQuarterPrim(' ', "NopSpace", Nop)
 	m.installQuarterPrim('!', "Store", Store)
+	m.installQuarterPrim('*', "Mul", Mul)
+	m.installQuarterPrim('+', "Add", Add)
 	m.installQuarterPrim(',', "Comma", Comma)
 	m.installQuarterPrim('-', "Minus", Minus)
 	m.installQuarterPrim('.', "Emit", Emit)
 	m.installQuarterPrim('0', "Zero", Zero)
+	m.installQuarterPrim('1', "One", One)
 	m.installQuarterPrim(':', "SetTabEntry", SetTabEntry)
 	m.installQuarterPrim(';', "RetComma", RetComma)
+	m.installQuarterPrim('<', "LessThan", LessThan)
 	m.installQuarterPrim('=', "Equal", Equal)
 	m.installQuarterPrim('>', "CompileComma", CompileComma)
 	m.installQuarterPrim('?', "Dispatch", Dispatch)
 	m.installQuarterPrim('@', "Fetch", Fetch)
+	m.installQuarterPrim('A', "CrashOnlyDuringStartup", CrashOnlyDuringStartup)
 	m.installQuarterPrim('B', "Branch0", Branch0)
+	m.installQuarterPrim('C', "C_Fetch", C_Fetch)
 	m.installQuarterPrim('D', "Dup", Dup)
 	m.installQuarterPrim('E', "EntryComma", EntryComma)
+	m.installQuarterPrim('G', "XtToNext", XtToNext)
 	m.installQuarterPrim('H', "HerePointer", HerePointer)
+	m.installQuarterPrim('I', "IsImmediate", IsImmediate)
 	m.installQuarterPrim('J', "Jump", Jump)
 	m.installQuarterPrim('L', "Lit", Lit)
 	m.installQuarterPrim('M', "CR", CR)
+	m.installQuarterPrim('N', "XtToName", XtToName)
+	m.installQuarterPrim('O', "Over", Over)
+	m.installQuarterPrim('P', "Drop", Drop)
+	m.installQuarterPrim('V', "Execute", Execute)
 	m.installQuarterPrim('W', "Swap", Swap)
 	m.installQuarterPrim('X', "Exit", Exit)
+	m.installQuarterPrim('Y', "IsHidden", IsHidden)
+	m.installQuarterPrim('Z', "Latest", Latest)
 	m.installQuarterPrim('^', "Key", Key)
 	m.installQuarterPrim('`', "C_Comma", C_Comma)
-
-	// m.installQuarterPrim('*', "Mul", Mul)
-	// m.installQuarterPrim('+', "Add", Add)
-	// m.installQuarterPrim('1', "One", One)
-	// m.installQuarterPrim('<', "LessThan", LessThan)
-	// m.installQuarterPrim('A', "CrashOnlyDuringStartup", CrashOnlyDuringStartup)
-	// m.installQuarterPrim('C', "C_Fetch", C_Fetch)
-	// m.installQuarterPrim('G', "XtToNext", XtToNext)
-	// m.installQuarterPrim('I', "IsImmediate", IsImmediate)
-	// m.installQuarterPrim('N', "XtToName", XtToName)
-	// m.installQuarterPrim('O', "Over", Over)
-	// m.installQuarterPrim('P', "Drop", Drop)
-	// m.installQuarterPrim('V', "Execute", Execute)
-	// m.installQuarterPrim('Y', "IsHidden", IsHidden)
-	// m.installQuarterPrim('Z', "Latest", Latest)
 
 	m.run()
 	fmt.Printf("\n*DONE*\n")
@@ -92,7 +91,9 @@ func (x *inputBytes) getChar() char {
 }
 
 func Add(m *machine) {
-	panic("Add")
+	v2 := m.pop()
+	v1 := m.pop()
+	m.push(value{v1.i + v2.i})
 }
 
 func Branch0(m *machine) {
@@ -225,7 +226,9 @@ func Minus(m *machine) {
 }
 
 func Mul(m *machine) {
-	panic("Mul")
+	v2 := m.pop()
+	v1 := m.pop()
+	m.push(value{v1.i * v2.i})
 }
 
 func Nop(m *machine) {
@@ -233,7 +236,7 @@ func Nop(m *machine) {
 }
 
 func One(m *machine) {
-	panic("One")
+	m.push(value{1})
 }
 
 func Over(m *machine) {
