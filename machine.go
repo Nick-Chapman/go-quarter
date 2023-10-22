@@ -19,16 +19,15 @@ type addr struct {
 	u uint16
 }
 
-type slot interface {
-	executeSlot(*machine, addr) addr
-	toLiteral() value
-}
-
 type ret struct {
 }
 
 type call struct {
 	addr addr
+}
+
+type entry struct {
+	name addr
 }
 
 type kdxLoop struct {
@@ -76,7 +75,7 @@ func (m *machine) run() { // the inner interpreter (aka trampoline!)
 		//m.see()
 		//fmt.Printf("addr=%v\n",a)
 		slot := m.lookupMem(a)
-		a = slot.executeSlot(m, a.next())
+		a = slot.executeSlot(m, a)
 	}
 }
 
@@ -100,7 +99,7 @@ func (m *machine) installPrim(prim *primitive) addr {
 	// TODO: write name & entry to allow dictionary lookup
 	// for now we will just write the native-slot code
 	a := addrOfValue(m.mem[m.hereP].toLiteral())
-	m.comma(prim.action)
+	m.comma(prim)
 	m.comma(ret{})
 	return a
 }
@@ -115,17 +114,19 @@ func (m *machine) setHere(a addr) {
 
 func (m *machine) comma(s slot) {
 	a := m.here()
+	//fmt.Printf("comma: %v = %s\n", a, s.viewSlot())
 	m.mem[a] = s
 	m.setHere(a.next())
 }
 
-func (m *machine) lookupDisaptch(c char) addr {
+func (m *machine) lookupDispatch(c char) addr {
+	//fmt.Printf("lookupDispatch: %v '%c'\n", c, c)
 	if c == 0 {
 		return m.halt
 	}
 	addr, ok := m.dt[c]
 	if !ok {
-		panic(fmt.Sprintf("lookupDisaptch: %v '%c'", c, c))
+		panic(fmt.Sprintf("lookupDispatch: %v", c))
 	}
 	return addr
 }
@@ -188,26 +189,34 @@ func addrOfValue(v value) addr {
 	return addr{uint16(v.i)}
 }
 
+
+type slot interface {
+	executeSlot(*machine, addr) addr
+	toLiteral() value
+	viewSlot() string
+}
+
 // executeSlot...
 
-func (x kdxLoop) executeSlot(m *machine, next addr) addr {
+func (x kdxLoop) executeSlot(m *machine, a addr) addr {
 	x.key(m)
 	x.dispatch(m)
 	m.rsPush(valueOfAddr(m.kdx))
 	return addrOfValue(m.pop())
 }
 
-func (native native) executeSlot(m *machine, next addr) addr {
-	native(m)
-	return next
+func (p primitive) executeSlot(m *machine, a addr) addr {
+	//fmt.Printf("* %s\n", p.name)
+	p.action(m)
+	return a.next()
 }
 
-func (call call) executeSlot(m *machine, next addr) addr {
-	m.rsPush(valueOfAddr(next))
+func (call call) executeSlot(m *machine, a addr) addr {
+	m.rsPush(valueOfAddr(a.next()))
 	return call.addr
 }
 
-func (ret) executeSlot(m *machine, next addr) addr {
+func (ret) executeSlot(m *machine, a addr) addr {
 	return addrOfValue(m.rsPop())
 }
 
@@ -219,14 +228,18 @@ func (char) executeSlot(*machine, addr) addr {
 	panic("char/execute")
 }
 
+func (entry) executeSlot(*machine, addr) addr {
+	panic("entry/execute")
+}
+
 // toLiteral...
 
 func (kdxLoop) toLiteral() value {
 	panic("kdxLoop/toLiteral")
 }
 
-func (native) toLiteral() value {
-	panic("native/toLiteral")
+func (primitive) toLiteral() value {
+	panic("primitive/toLiteral")
 }
 
 func (call) toLiteral() value {
@@ -237,6 +250,10 @@ func (ret) toLiteral() value {
 	panic("ret/toLiteral")
 }
 
+func (entry) toLiteral() value {
+	panic("entry/toLiteral")
+}
+
 func (v value) toLiteral() value {
 	return v
 }
@@ -244,3 +261,44 @@ func (v value) toLiteral() value {
 func (c char) toLiteral() value {
 	return valueOfChar(c)
 }
+
+// viewSlot...
+
+func (kdxLoop) viewSlot() string {
+	return "KDXL"
+}
+
+func (p primitive) viewSlot() string {
+	return fmt.Sprintf("prim: %s", p.name)
+}
+
+func (call call) viewSlot() string {
+	return fmt.Sprintf("call: %v", call.addr)
+}
+
+func (ret) viewSlot() string {
+	return "ret"
+}
+
+func (entry) viewSlot() string {
+	return "entry"
+}
+
+func (v value) viewSlot() string {
+	return fmt.Sprintf("value: %v", v)
+}
+
+func (c char) viewSlot() string {
+	return fmt.Sprintf("char: %v", c)
+}
+
+// String...
+
+func (addr addr) String() string {
+	return fmt.Sprintf("[%d]",addr.u)
+}
+
+func (c char) String() string {
+	return fmt.Sprintf("%d='%c'",c,c)
+}
+

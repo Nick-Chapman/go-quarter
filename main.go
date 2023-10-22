@@ -10,56 +10,58 @@ func main() {
 
 	Key := func(m *machine) {
 		c := input.getChar()
-		//fmt.Printf("key: %c\n", c) //echo
+		//fmt.Printf("Key: %c\n", c) //echo
 		fmt.Printf("%c", c) //echo
 		m.push(valueOfChar(c))
 	}
 
 	SetTabEntry := func(m *machine) {
 		c := input.getChar()
+		//fmt.Printf("SetTabEntry: %c\n", c)
 		m.dt[c] = m.here()
 	}
 
 	m := newMachine(Key, Dispatch)
 
-	m.installQuarterPrim('\n', "", Nop)
-	m.installQuarterPrim(' ', "", Nop)
-	m.installQuarterPrim('!', "", Store)
-	m.installQuarterPrim('*', "", Mul)
-	m.installQuarterPrim('+', "", Add)
-	m.installQuarterPrim(',', "", Comma)
-	m.installQuarterPrim('-', "", Minus)
-	m.installQuarterPrim('.', "", Emit)
-	m.installQuarterPrim('0', "", Zero)
-	m.installQuarterPrim('1', "", One)
-	m.installQuarterPrim(':', "", SetTabEntry)
-	m.installQuarterPrim(';', "", RetComma)
-	m.installQuarterPrim('<', "", LessThan)
-	m.installQuarterPrim('=', "", Equal)
-	m.installQuarterPrim('>', "", CompileComma)
-	m.installQuarterPrim('?', "", Dispatch)
-	m.installQuarterPrim('@', "", Fetch)
-	m.installQuarterPrim('A', "", CrashOnlyDuringStartup)
-	m.installQuarterPrim('B', "", Branch0)
-	m.installQuarterPrim('C', "", C_Fetch)
-	m.installQuarterPrim('D', "", Dup)
-	m.installQuarterPrim('E', "", EntryComma)
-	m.installQuarterPrim('G', "", XtToNext)
-	m.installQuarterPrim('H', "", HerePointer)
-	m.installQuarterPrim('I', "", IsImmediate)
-	m.installQuarterPrim('J', "", Jump)
-	m.installQuarterPrim('L', "", Lit)
-	m.installQuarterPrim('M', "", CR)
-	m.installQuarterPrim('N', "", XtToName)
-	m.installQuarterPrim('O', "", Over)
-	m.installQuarterPrim('P', "", Drop)
-	m.installQuarterPrim('V', "", Execute)
-	m.installQuarterPrim('W', "", Swap)
-	m.installQuarterPrim('X', "", Exit)
-	m.installQuarterPrim('Y', "", IsHidden)
-	m.installQuarterPrim('Z', "", Latest)
-	m.installQuarterPrim('^', "", Key)
-	m.installQuarterPrim('`', "", C_Comma)
+	m.installQuarterPrim('\n', "NopNL", Nop)
+	m.installQuarterPrim(' ', "NopSpace", Nop)
+	m.installQuarterPrim('!', "Store", Store)
+	m.installQuarterPrim(',', "Comma", Comma)
+	m.installQuarterPrim('-', "Minus", Minus)
+	m.installQuarterPrim('.', "Emit", Emit)
+	m.installQuarterPrim('0', "Zero", Zero)
+	m.installQuarterPrim(':', "SetTabEntry", SetTabEntry)
+	m.installQuarterPrim(';', "RetComma", RetComma)
+	m.installQuarterPrim('=', "Equal", Equal)
+	m.installQuarterPrim('>', "CompileComma", CompileComma)
+	m.installQuarterPrim('?', "Dispatch", Dispatch)
+	m.installQuarterPrim('@', "Fetch", Fetch)
+	m.installQuarterPrim('B', "Branch0", Branch0)
+	m.installQuarterPrim('D', "Dup", Dup)
+	m.installQuarterPrim('E', "EntryComma", EntryComma)
+	m.installQuarterPrim('H', "HerePointer", HerePointer)
+	m.installQuarterPrim('J', "Jump", Jump)
+	m.installQuarterPrim('L', "Lit", Lit)
+	m.installQuarterPrim('M', "CR", CR)
+	m.installQuarterPrim('W', "Swap", Swap)
+	m.installQuarterPrim('X', "Exit", Exit)
+	m.installQuarterPrim('^', "Key", Key)
+	m.installQuarterPrim('`', "C_Comma", C_Comma)
+
+	// m.installQuarterPrim('*', "Mul", Mul)
+	// m.installQuarterPrim('+', "Add", Add)
+	// m.installQuarterPrim('1', "One", One)
+	// m.installQuarterPrim('<', "LessThan", LessThan)
+	// m.installQuarterPrim('A', "CrashOnlyDuringStartup", CrashOnlyDuringStartup)
+	// m.installQuarterPrim('C', "C_Fetch", C_Fetch)
+	// m.installQuarterPrim('G', "XtToNext", XtToNext)
+	// m.installQuarterPrim('I', "IsImmediate", IsImmediate)
+	// m.installQuarterPrim('N', "XtToName", XtToName)
+	// m.installQuarterPrim('O', "Over", Over)
+	// m.installQuarterPrim('P', "Drop", Drop)
+	// m.installQuarterPrim('V', "Execute", Execute)
+	// m.installQuarterPrim('Y', "IsHidden", IsHidden)
+	// m.installQuarterPrim('Z', "Latest", Latest)
 
 	m.run()
 	fmt.Printf("\n*DONE*\n")
@@ -94,11 +96,18 @@ func Add(m *machine) {
 }
 
 func Branch0(m *machine) {
-	panic("Branch0")
+	a := addrOfValue(m.rsPop())
+	v := m.pop()
+	if isZero(v) {
+		slot := m.lookupMem(a)
+		n := int(slot.toLiteral().i)
+		m.rsPush(valueOfAddr(a.offset(n)))
+	} else {
+		m.rsPush(valueOfAddr(a.next()))
+	}
 }
 
 func C_Comma(m *machine) {
-	//panic("C_Comma")
 	c := charOfValue(m.pop())
 	m.comma(c)
 }
@@ -127,7 +136,7 @@ func CrashOnlyDuringStartup(m *machine) {
 
 func Dispatch(m *machine) {
 	c := charOfValue(m.pop())
-	a := m.lookupDisaptch(c)
+	a := m.lookupDispatch(c)
 	m.push(valueOfAddr(a))
 }
 
@@ -136,21 +145,30 @@ func Drop(m *machine) {
 }
 
 func Dup(m *machine) {
-	panic("Dup")
+	v := m.pop()
+	m.push(v)
+	m.push(v)
 }
 
 func Emit(m *machine) {
 	c := charOfValue(m.pop())
-	//fmt.Printf("Emit: %v '%c'\n", c, c)
+	//fmt.Printf("Emit: %v\n", c)
 	fmt.Printf("%c", c)
 }
 
 func EntryComma(m *machine) {
-	panic("EntryComma")
+	v := m.pop()
+	m.comma(entry{addrOfValue(v)})
 }
 
 func Equal(m *machine) {
-	panic("Equal")
+	v2 := m.pop()
+	v1 := m.pop()
+	if v1.i == v2.i {
+		m.push(value{-1})
+	} else {
+		m.push(value{0})
+	}
 }
 
 func Execute(m *machine) {
@@ -158,7 +176,7 @@ func Execute(m *machine) {
 }
 
 func Exit(m *machine) {
-	panic("Exit")
+	m.rsPop()
 }
 
 func Fetch(m *machine) {
@@ -180,7 +198,9 @@ func IsImmediate(m *machine) {
 }
 
 func Jump(m *machine) {
-	panic("Jump")
+	v := m.pop()
+	m.rsPop()
+	m.rsPush(v)
 }
 
 func Latest(m *machine) {
@@ -195,11 +215,13 @@ func Lit(m *machine) {
 	a := addrOfValue(m.rsPop())
 	slot := m.lookupMem(a)
 	m.push(slot.toLiteral())
-	valueOfAddr(a.offset(2))
+	m.rsPush(valueOfAddr(a.next())) //AGGGH, was 2 and forgot to rs-push
 }
 
 func Minus(m *machine) {
-	panic("Minus")
+	v2 := m.pop()
+	v1 := m.pop()
+	m.push(value{v1.i - v2.i})
 }
 
 func Mul(m *machine) {
@@ -222,20 +244,29 @@ func RetComma(m *machine) {
 	m.comma(ret{})
 }
 
-func SetTabEntry(m *machine) {
-	panic("SetTabEntry")
-}
-
 func Store(m *machine) {
-	panic("Store")
+	a := addrOfValue(m.pop())
+	v := m.pop()
+	m.mem[a] = v
 }
 
 func Swap(m *machine) {
-	panic("Swap")
+	v1 := m.pop()
+	v2 := m.pop()
+	m.push(v1)
+	m.push(v2)
 }
 
 func XtToName(m *machine) {
 	panic("XtToName")
+	/*(a := addrOfValue(m.pop()).offset(-1)
+	fmt.Printf("XtToName: %v\n", a)
+	slot := m.lookupMem(a)
+	entry, ok := slot.(entry)
+	if !ok {
+		panic("XtToName/non-entry")
+	}
+	m.push(valueOfAddr(entry.name))*/
 }
 
 func XtToNext(m *machine) {
