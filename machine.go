@@ -65,13 +65,12 @@ func (m *machine) installPrim(prim *primitive) addr {
 	// TODO: write name & entry to allow dictionary lookup
 	// for now we will just write the native-slot code
 	a := m.here
-	slot := prim.action
-	comma(m, slot)
-	comma(m, ret{})
+	m.comma(prim.action)
+	m.comma(ret{})
 	return a
 }
 
-func comma(m *machine, s slot) {
+func (m *machine) comma(s slot) {
 	a := m.here
 	m.mem[a] = s
 	m.here = a.next()
@@ -160,6 +159,10 @@ type slot interface {
 type ret struct {
 }
 
+type call struct {
+	addr addr
+}
+
 type kdxLoop struct {
 	key      native
 	dispatch native
@@ -179,6 +182,10 @@ func (native native) executeSlot(m *machine, a addr) addr {
 	return a
 }
 
+func (call) executeSlot(m *machine, a addr) addr {
+	panic("call/execute") // TODO: this will be needed
+}
+
 func (ret) executeSlot(m *machine, a addr) addr {
 	return addrOfValue(m.rsPop())
 }
@@ -195,6 +202,10 @@ func (kdxLoop) toLiteral() value {
 
 func (native) toLiteral() value {
 	panic("native/toLiteral")
+}
+
+func (call) toLiteral() value {
+	panic("call/toLiteral")
 }
 
 func (ret) toLiteral() value {
