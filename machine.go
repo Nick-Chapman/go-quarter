@@ -2,10 +2,6 @@ package main
 
 import "fmt"
 
-type input interface {
-	getChar() byte
-}
-
 type primitive struct {
 	name   string
 	action func(*machine)
@@ -16,19 +12,28 @@ func makePrim(n string, f func(*machine)) *primitive {
 }
 
 type machine struct {
+	steps     uint
 	dt        map[byte]addr
 	mem       map[addr]slot
 	here      addr
-	input     input
 	psPointer addr
 }
 
-func newMachine(input input) *machine {
+func newMachine() *machine {
 	dt := make(map[byte]addr)
 	mem := make(map[addr]slot)
 	here := addr{100}
 	psPointer := addr{50000}
-	return &machine{dt, mem, here, input, psPointer}
+	return &machine{0, dt, mem, here, psPointer}
+}
+
+func (m *machine) tick() {
+	m.steps++
+}
+
+func (m *machine) see() {
+	fmt.Printf("machine: steps = %v, here = %v, psPointer= %v\n",
+		m.steps, m.here, m.psPointer)
 }
 
 func (m *machine) installQuarterPrim(c byte, p *primitive) {
@@ -36,11 +41,11 @@ func (m *machine) installQuarterPrim(c byte, p *primitive) {
 	m.dt[c] = a
 }
 
-func (m *machine) installPrim(p *primitive) addr {
+func (m *machine) installPrim(prim *primitive) addr {
 	// TODO: write name & entry to allow dictionary lookup
 	// for now we will just write the native-slot code
 	a := m.here
-	slot := native{p.action}
+	slot := prim
 	comma(m, slot)
 	return a
 }
@@ -61,6 +66,7 @@ func (m *machine) lookupDisaptch(c byte) addr {
 
 func (m *machine) lookupMem(a addr) slot {
 	slot, ok := m.mem[a]
+	//fmt.Println("lookupMem",a,"->",slot,ok)
 	if !ok {
 		panic(fmt.Sprintf("lookupMem: %a", a))
 	}
@@ -69,7 +75,12 @@ func (m *machine) lookupMem(a addr) slot {
 
 func (m *machine) run() {
 	for {
+		m.tick()
+		//m.see()
 		m.executeQ('^')
+		if isZero(m.top()) {
+			break
+		}
 		m.executeQ('.')
 	}
 }
@@ -79,23 +90,46 @@ func (m *machine) executeQ(c byte) {
 	a.execute(m)
 }
 
-func (m *machine) getChar() byte {
-	return m.input.getChar()
-}
-
 func (m *machine) push(v value) {
-	a := m.psPointer
-	m.mem[a] = slotLiteral{v}
+	m.psPointer = m.psPointer.offset(-2)
+	m.mem[m.psPointer] = v
 }
 
 func (m *machine) pop() value {
+	slot := m.lookupMem(m.psPointer)
+	m.psPointer = m.psPointer.offset(2)
+	return slot.toLiteral()
+}
+
+func (m *machine) top() value {
 	a := m.psPointer
 	slot := m.lookupMem(a)
 	return slot.toLiteral()
 }
 
+type addr struct {
+	i uint16
+}
+
+func (a addr) next() addr {
+	return a.offset(1)
+}
+
+func (a addr) offset(n int) addr {
+	return addr{a.i + uint16(n)}
+}
+
+func (a addr) execute(m *machine) {
+	s := m.lookupMem(a)
+	s.execute(m)
+}
+
 type value struct {
 	i int16
+}
+
+func isZero(v value) bool {
+	return v.i == 0
 }
 
 func valueOfChar(c byte) value {
@@ -106,44 +140,23 @@ func charOfValue(v value) byte {
 	return byte(v.i % 256)
 }
 
-type addr struct {
-	i uint16
-}
-
-func (a addr) next() addr {
-	return addr{a.i + 1}
-}
-
-func (a addr) execute(m *machine) {
-	s := m.lookupMem(a)
-	s.execute(m)
-}
-
-type slot interface {
+type slot interface { // primitive or value
 	execute(*machine)
 	toLiteral() value
 }
 
-type native struct {
-	action func(*machine)
-}
-
-func (n native) execute(m *machine) {
+func (n primitive) execute(m *machine) {
 	n.action(m)
 }
 
-func (n native) toLiteral() value {
-	panic("native/toLiteral")
+func (n primitive) toLiteral() value {
+	panic("primitive/toLiteral")
 }
 
-type slotLiteral struct {
-	literal value
-}
-
-func (slotLiteral) execute(*machine) {
+func (value) execute(*machine) {
 	panic("slotLiteral/execute")
 }
 
-func (s slotLiteral) toLiteral() value {
-	return s.literal
+func (v value) toLiteral() value {
+	return v
 }
