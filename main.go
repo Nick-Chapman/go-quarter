@@ -17,7 +17,7 @@ func main() {
 
 	SetTabEntry := func(m *machine) {
 		c := input.getChar()
-		m.dt[c] = m.here
+		m.dt[c] = m.here()
 	}
 
 	m := newMachine(Key, Dispatch)
@@ -71,7 +71,7 @@ func readFile(filename string) inputBytes {
 	if err != nil {
 		panic(err)
 	}
-	return inputBytes{bs[0:100], 0}
+	return inputBytes{bs, 0}
 }
 
 type inputBytes struct {
@@ -79,14 +79,14 @@ type inputBytes struct {
 	n  int
 }
 
-func (x *inputBytes) getChar() byte {
+func (x *inputBytes) getChar() char {
 	if x.n == len(x.bs) {
 		return 0
 	}
 	n := x.n
 	c := x.bs[n]
 	x.n = n + 1
-	return c
+	return char(c)
 }
 
 func Add(m *machine) {
@@ -98,7 +98,9 @@ func Branch0(m *machine) {
 }
 
 func C_Comma(m *machine) {
-	panic("C_Comma")
+	//panic("C_Comma")
+	c := charOfValue(m.pop())
+	m.comma(c)
 }
 
 func C_Fetch(m *machine) {
@@ -106,7 +108,8 @@ func C_Fetch(m *machine) {
 }
 
 func Comma(m *machine) {
-	panic("Comma")
+	v := m.pop()
+	m.comma(v)
 }
 
 func CompileComma(m *machine) {
@@ -159,11 +162,13 @@ func Exit(m *machine) {
 }
 
 func Fetch(m *machine) {
-	panic("Fetch")
+	a := addrOfValue(m.pop())
+	slot := m.lookupMem(a)
+	m.push(slot.toLiteral())
 }
 
 func HerePointer(m *machine) {
-	panic("HerePointer")
+	m.push(valueOfAddr(m.hereP))
 }
 
 func IsHidden(m *machine) {
@@ -187,7 +192,10 @@ func LessThan(m *machine) {
 }
 
 func Lit(m *machine) {
-	panic("Lit")
+	a := addrOfValue(m.rsPop())
+	slot := m.lookupMem(a)
+	m.push(slot.toLiteral())
+	valueOfAddr(a.offset(2))
 }
 
 func Minus(m *machine) {
@@ -235,5 +243,5 @@ func XtToNext(m *machine) {
 }
 
 func Zero(m *machine) {
-	panic("Zero")
+	m.push(value{0})
 }

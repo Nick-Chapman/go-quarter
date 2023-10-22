@@ -9,35 +9,69 @@ type primitive struct {
 	action native
 }
 
-func makePrim(n string, f func(*machine)) *primitive {
-	return &primitive{n, f}
+type value struct {
+	i int16
+}
+
+type char byte
+
+type addr struct {
+	u uint16
+}
+
+type slot interface {
+	executeSlot(*machine, addr) addr
+	toLiteral() value
+}
+
+type ret struct {
+}
+
+type call struct {
+	addr addr
+}
+
+type kdxLoop struct {
+	key      native
+	dispatch native
 }
 
 type machine struct {
-	steps     uint
-	dt        map[byte]addr
+	halt      addr
+	kdx       addr
+	hereP     addr
+	dt        map[char]addr
 	mem       map[addr]slot
-	here      addr
 	psPointer addr
 	rsPointer addr
+	steps     uint
 }
 
 func newMachine(key, dispatch native) *machine {
 	mem := make(map[addr]slot)
-	mem[addr{0}] = kdxLoop{key, dispatch}
+	halt := addr{0}
+	kdx := addr{1}
+	hereP := addr{2}
+	mem[kdx] = kdxLoop{key, dispatch}
+	mem[hereP] = valueOfAddr(addr{100})
 	return &machine{
-		steps:     0,
-		dt:        make(map[byte]addr),
+		halt:      halt,
+		kdx:       kdx,
+		hereP:     hereP,
+		dt:        make(map[char]addr),
 		mem:       mem,
-		here:      addr{100},
-		psPointer: addr{50000},
-		rsPointer: addr{60000},
+		psPointer: addr{51000},
+		rsPointer: addr{61000},
+		steps:     0,
 	}
 }
 
 func (m *machine) run() { // the inner interpreter (aka trampoline!)
-	var a addr = addr{0}
+	var a addr = m.kdx
 	for {
+		if a == m.halt {
+			break
+		}
 		m.tick()
 		//m.see()
 		//fmt.Printf("addr=%v\n",a)
@@ -51,12 +85,13 @@ func (m *machine) tick() {
 }
 
 func (m *machine) see() {
+	here := m.mem[m.hereP]
 	fmt.Printf("steps: %v, here: %v, ps: %v, rs: %v\n",
-		m.steps, m.here, m.psPointer, m.rsPointer)
+		m.steps, here, m.psPointer, m.rsPointer)
 }
 
-func (m *machine) installQuarterPrim(c byte, name string, native native) {
-	p := makePrim(name, native)
+func (m *machine) installQuarterPrim(c char, name string, action native) {
+	p := &primitive{name, action}
 	a := m.installPrim(p)
 	m.dt[c] = a
 }
@@ -64,19 +99,30 @@ func (m *machine) installQuarterPrim(c byte, name string, native native) {
 func (m *machine) installPrim(prim *primitive) addr {
 	// TODO: write name & entry to allow dictionary lookup
 	// for now we will just write the native-slot code
-	a := m.here
+	a := addrOfValue(m.mem[m.hereP].toLiteral())
 	m.comma(prim.action)
 	m.comma(ret{})
 	return a
 }
 
-func (m *machine) comma(s slot) {
-	a := m.here
-	m.mem[a] = s
-	m.here = a.next()
+func (m *machine) here() addr {
+	return addrOfValue(m.mem[m.hereP].toLiteral())
 }
 
-func (m *machine) lookupDisaptch(c byte) addr {
+func (m *machine) setHere(a addr) {
+	m.mem[m.hereP] = valueOfAddr(a)
+}
+
+func (m *machine) comma(s slot) {
+	a := m.here()
+	m.mem[a] = s
+	m.setHere(a.next())
+}
+
+func (m *machine) lookupDisaptch(c char) addr {
+	if c == 0 {
+		return m.halt
+	}
 	addr, ok := m.dt[c]
 	if !ok {
 		panic(fmt.Sprintf("lookupDisaptch: %v '%c'", c, c))
@@ -86,7 +132,6 @@ func (m *machine) lookupDisaptch(c byte) addr {
 
 func (m *machine) lookupMem(a addr) slot {
 	slot, ok := m.mem[a]
-	//fmt.Println("lookupMem",a,"->",slot,ok)
 	if !ok {
 		panic(fmt.Sprintf("lookupMem: %v", a))
 	}
@@ -115,10 +160,6 @@ func (m *machine) rsPop() value {
 	return slot.toLiteral()
 }
 
-type addr struct {
-	u uint16
-}
-
 func (a addr) next() addr {
 	return a.offset(1)
 }
@@ -127,15 +168,11 @@ func (a addr) offset(n int) addr {
 	return addr{a.u + uint16(n)}
 }
 
-type value struct {
-	i int16
-}
-
 func isZero(v value) bool {
 	return v.i == 0
 }
 
-func valueOfChar(c byte) value {
+func valueOfChar(c char) value {
 	return value{int16(c)}
 }
 
@@ -143,55 +180,43 @@ func valueOfAddr(a addr) value {
 	return value{int16(a.u)}
 }
 
-func charOfValue(v value) byte {
-	return byte(v.i % 256)
+func charOfValue(v value) char {
+	return char(v.i % 256)
 }
 
 func addrOfValue(v value) addr {
 	return addr{uint16(v.i)}
 }
 
-type slot interface {
-	executeSlot(*machine, addr) addr
-	toLiteral() value
-}
-
-type ret struct {
-}
-
-type call struct {
-	addr addr
-}
-
-type kdxLoop struct {
-	key      native
-	dispatch native
-}
-
 // executeSlot...
 
-func (x kdxLoop) executeSlot(m *machine, a addr) addr {
+func (x kdxLoop) executeSlot(m *machine, next addr) addr {
 	x.key(m)
 	x.dispatch(m)
-	m.rsPush(valueOfAddr(addr{0}))
+	m.rsPush(valueOfAddr(m.kdx))
 	return addrOfValue(m.pop())
 }
 
-func (native native) executeSlot(m *machine, a addr) addr {
+func (native native) executeSlot(m *machine, next addr) addr {
 	native(m)
-	return a
+	return next
 }
 
-func (call) executeSlot(m *machine, a addr) addr {
-	panic("call/execute") // TODO: this will be needed
+func (call call) executeSlot(m *machine, next addr) addr {
+	m.rsPush(valueOfAddr(next))
+	return call.addr
 }
 
-func (ret) executeSlot(m *machine, a addr) addr {
+func (ret) executeSlot(m *machine, next addr) addr {
 	return addrOfValue(m.rsPop())
 }
 
 func (value) executeSlot(*machine, addr) addr {
 	panic("value/execute")
+}
+
+func (char) executeSlot(*machine, addr) addr {
+	panic("char/execute")
 }
 
 // toLiteral...
@@ -214,4 +239,8 @@ func (ret) toLiteral() value {
 
 func (v value) toLiteral() value {
 	return v
+}
+
+func (c char) toLiteral() value {
+	return valueOfChar(c)
 }
