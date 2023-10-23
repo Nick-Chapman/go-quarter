@@ -27,7 +27,10 @@ type call struct {
 }
 
 type entry struct {
-	name addr
+	name      addr
+	next      addr
+	hidden    bool
+	immediate bool
 }
 
 type kdxLoop struct {
@@ -39,6 +42,7 @@ type machine struct {
 	halt      addr
 	kdx       addr
 	hereP     addr
+	latest    addr
 	dt        map[char]addr
 	mem       map[addr]slot
 	psPointer addr
@@ -57,6 +61,7 @@ func newMachine(key, dispatch native) *machine {
 		halt:      halt,
 		kdx:       kdx,
 		hereP:     hereP,
+		latest:    addr{0},
 		dt:        make(map[char]addr),
 		mem:       mem,
 		psPointer: addr{51000},
@@ -90,18 +95,36 @@ func (m *machine) see() {
 }
 
 func (m *machine) installQuarterPrim(c char, name string, action native) {
-	p := &primitive{name, action}
-	a := m.installPrim(p)
+	a := m.installPrim(name, action)
 	m.dt[c] = a
 }
 
-func (m *machine) installPrim(prim *primitive) addr {
-	// TODO: write name & entry to allow dictionary lookup
-	// for now we will just write the native-slot code
-	a := addrOfValue(m.mem[m.hereP].toLiteral())
+func (m *machine) installPrim(nameString string, action native) addr {
+	prim := &primitive{nameString, action}
+	name := m.here()
+	m.commaString(prim.name)
+	m.comma(entry{name, m.latest, false, false})
+	xt := m.here()
 	m.comma(prim)
 	m.comma(ret{})
-	return a
+	m.latest = xt
+	return xt
+}
+
+func AsEntry(slot slot) entry {
+	entry, ok := slot.(entry)
+	if !ok {
+		panic("AsEntry/non-entry")
+	}
+	return entry
+}
+
+func AsChar(slot slot) char {
+	char, ok := slot.(char)
+	if !ok {
+		panic("AsChar/non-char")
+	}
+	return char
 }
 
 func (m *machine) here() addr {
@@ -112,6 +135,14 @@ func (m *machine) setHere(a addr) {
 	m.mem[m.hereP] = valueOfAddr(a)
 }
 
+func (m *machine) commaString(s string) {
+	for i := 0; i < len(s); i++ {
+		c := char(s[i])
+		m.comma(c)
+	}
+	m.comma(char(0))
+}
+
 func (m *machine) comma(s slot) {
 	a := m.here()
 	//fmt.Printf("comma: %v = %s\n", a, s.viewSlot())
@@ -120,7 +151,6 @@ func (m *machine) comma(s slot) {
 }
 
 func (m *machine) lookupDispatch(c char) addr {
-	//fmt.Printf("lookupDispatch: %v '%c'\n", c, c)
 	if c == 0 {
 		return m.halt
 	}
@@ -173,6 +203,14 @@ func isZero(v value) bool {
 	return v.i == 0
 }
 
+func valueOfBool(b bool) value {
+	if b {
+		return value{-1}
+	} else {
+		return value{0}
+	}
+}
+
 func valueOfChar(c char) value {
 	return value{int16(c)}
 }
@@ -188,7 +226,6 @@ func charOfValue(v value) char {
 func addrOfValue(v value) addr {
 	return addr{uint16(v.i)}
 }
-
 
 type slot interface {
 	executeSlot(*machine, addr) addr
@@ -254,12 +291,12 @@ func (entry) toLiteral() value {
 	panic("entry/toLiteral")
 }
 
-func (v value) toLiteral() value {
-	return v
+func (c char) toLiteral() value {
+	panic("char/toLiteral")
 }
 
-func (c char) toLiteral() value {
-	return valueOfChar(c)
+func (v value) toLiteral() value {
+	return v
 }
 
 // viewSlot...
@@ -280,8 +317,8 @@ func (ret) viewSlot() string {
 	return "ret"
 }
 
-func (entry) viewSlot() string {
-	return "entry"
+func (e entry) viewSlot() string {
+	return fmt.Sprintf("entry: name=%v, next=%v", e.name, e.next)
 }
 
 func (v value) viewSlot() string {
@@ -295,10 +332,9 @@ func (c char) viewSlot() string {
 // String...
 
 func (addr addr) String() string {
-	return fmt.Sprintf("[%d]",addr.u)
+	return fmt.Sprintf("[%d]", addr.u)
 }
 
 func (c char) String() string {
-	return fmt.Sprintf("%d='%c'",c,c)
+	return fmt.Sprintf("%d='%c'", c, c)
 }
-

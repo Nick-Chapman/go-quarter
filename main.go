@@ -6,12 +6,21 @@ import "os"
 func main() {
 	fmt.Printf("*go-quarter*\n")
 
-	input := readFile("../quarter-forth/f/quarter.q")
+	bs1, err := os.ReadFile("../quarter-forth/f/quarter.q")
+	if err != nil {
+		panic(err)
+	}
+	bs2, err := os.ReadFile("../quarter-forth/f/forth.f")
+	if err != nil {
+		panic(err)
+	}
+	bs := append(bs1, bs2...)
+	input := inputBytes{bs, 0}
 
 	Key := func(m *machine) {
 		c := input.getChar()
-		//fmt.Printf("Key: %c\n", c) //echo
-		fmt.Printf("%c", c) //echo
+		//fmt.Printf("Key: %v\n", c) //echo
+		//fmt.Printf("%c", c) //echo
 		m.push(valueOfChar(c))
 	}
 
@@ -25,54 +34,57 @@ func main() {
 
 	m.installQuarterPrim('\n', "NopNL", Nop)
 	m.installQuarterPrim(' ', "NopSpace", Nop)
-	m.installQuarterPrim('!', "Store", Store)
-	m.installQuarterPrim('*', "Mul", Mul)
-	m.installQuarterPrim('+', "Add", Add)
-	m.installQuarterPrim(',', "Comma", Comma)
-	m.installQuarterPrim('-', "Minus", Minus)
-	m.installQuarterPrim('.', "Emit", Emit)
-	m.installQuarterPrim('0', "Zero", Zero)
-	m.installQuarterPrim('1', "One", One)
+	m.installQuarterPrim('!', "!", Store)
+	m.installQuarterPrim('*', "*", Mul)
+	m.installQuarterPrim('+', "+", Add)
+	m.installQuarterPrim(',', ",", Comma)
+	m.installQuarterPrim('-', "-", Minus)
+	m.installQuarterPrim('.', "emit", Emit)
+	m.installQuarterPrim('0', "0", Zero)
+	m.installQuarterPrim('1', "1", One)
 	m.installQuarterPrim(':', "SetTabEntry", SetTabEntry)
-	m.installQuarterPrim(';', "RetComma", RetComma)
-	m.installQuarterPrim('<', "LessThan", LessThan)
-	m.installQuarterPrim('=', "Equal", Equal)
-	m.installQuarterPrim('>', "CompileComma", CompileComma)
+	m.installQuarterPrim(';', "ret,", RetComma)
+	m.installQuarterPrim('<', "<", LessThan)
+	m.installQuarterPrim('=', "=", Equal)
+	m.installQuarterPrim('>', "compile,", CompileComma)
 	m.installQuarterPrim('?', "Dispatch", Dispatch)
-	m.installQuarterPrim('@', "Fetch", Fetch)
-	m.installQuarterPrim('A', "CrashOnlyDuringStartup", CrashOnlyDuringStartup)
-	m.installQuarterPrim('B', "Branch0", Branch0)
-	m.installQuarterPrim('C', "C_Fetch", C_Fetch)
-	m.installQuarterPrim('D', "Dup", Dup)
-	m.installQuarterPrim('E', "EntryComma", EntryComma)
-	m.installQuarterPrim('G', "XtToNext", XtToNext)
-	m.installQuarterPrim('H', "HerePointer", HerePointer)
-	m.installQuarterPrim('I', "IsImmediate", IsImmediate)
-	m.installQuarterPrim('J', "Jump", Jump)
-	m.installQuarterPrim('L', "Lit", Lit)
-	m.installQuarterPrim('M', "CR", CR)
-	m.installQuarterPrim('N', "XtToName", XtToName)
-	m.installQuarterPrim('O', "Over", Over)
-	m.installQuarterPrim('P', "Drop", Drop)
-	m.installQuarterPrim('V', "Execute", Execute)
-	m.installQuarterPrim('W', "Swap", Swap)
-	m.installQuarterPrim('X', "Exit", Exit)
-	m.installQuarterPrim('Y', "IsHidden", IsHidden)
-	m.installQuarterPrim('Z', "Latest", Latest)
-	m.installQuarterPrim('^', "Key", Key)
-	m.installQuarterPrim('`', "C_Comma", C_Comma)
+	m.installQuarterPrim('@', "@", Fetch)
+	m.installQuarterPrim('A', "crash-only-during-startup", CrashOnlyDuringStartup)
+	m.installQuarterPrim('B', "0branch", Branch0)
+	m.installQuarterPrim('C', "c@", C_Fetch)
+	m.installQuarterPrim('D', "dup", Dup)
+	m.installQuarterPrim('E', "entry,", EntryComma)
+	m.installQuarterPrim('G', "xt->next", XtToNext)
+	m.installQuarterPrim('H', "here-pointer", HerePointer)
+	m.installQuarterPrim('I', "immediate?", IsImmediate)
+	m.installQuarterPrim('J', "jump", Jump)
+	m.installQuarterPrim('L', "lit", Lit)
+	m.installQuarterPrim('M', "cr", CR)
+	m.installQuarterPrim('N', "xt->name", XtToName)
+	m.installQuarterPrim('O', "over", Over)
+	m.installQuarterPrim('P', "drop", Drop)
+	m.installQuarterPrim('V', "execute", Execute)
+	m.installQuarterPrim('W', "swap", Swap)
+	m.installQuarterPrim('X', "exit", Exit)
+	m.installQuarterPrim('Y', "hidden?", IsHidden)
+	m.installQuarterPrim('Z', "latest", Latest)
+	m.installQuarterPrim('^', "key", Key)
+	m.installQuarterPrim('`', "c,", C_Comma)
+
+	m.installPrim("immediate^", FlipImmediate)
+	m.installPrim("hidden^", FlipHidden)
+	m.installPrim("branch", Branch)
+	m.installPrim("xor", Xor)
+	m.installPrim("crash", Crash)
+	m.installPrim(">r", ToReturnStack)
+	m.installPrim("r>", FromReturnStack)
+	m.installPrim("/mod", DivMod)
+	m.installPrim("key?", KeyNonBlocking)
+	m.installPrim("c!", C_Store)
 
 	m.run()
 	fmt.Printf("\n*DONE*\n")
 	m.see()
-}
-
-func readFile(filename string) inputBytes {
-	bs, err := os.ReadFile(filename)
-	if err != nil {
-		panic(err)
-	}
-	return inputBytes{bs, 0}
 }
 
 type inputBytes struct {
@@ -82,7 +94,7 @@ type inputBytes struct {
 
 func (x *inputBytes) getChar() char {
 	if x.n == len(x.bs) {
-		return 0
+		panic("EOF")
 	}
 	n := x.n
 	c := x.bs[n]
@@ -114,7 +126,10 @@ func C_Comma(m *machine) {
 }
 
 func C_Fetch(m *machine) {
-	panic("C_Fetch")
+	a := addrOfValue(m.pop())
+	slot := m.lookupMem(a)
+	char := AsChar(slot)
+	m.push(valueOfChar(char))
 }
 
 func Comma(m *machine) {
@@ -142,7 +157,7 @@ func Dispatch(m *machine) {
 }
 
 func Drop(m *machine) {
-	panic("Drop")
+	m.pop()
 }
 
 func Dup(m *machine) {
@@ -159,21 +174,19 @@ func Emit(m *machine) {
 
 func EntryComma(m *machine) {
 	v := m.pop()
-	m.comma(entry{addrOfValue(v)})
+	m.comma(entry{addrOfValue(v), m.latest, false, false})
+	m.latest = m.here()
 }
 
 func Equal(m *machine) {
 	v2 := m.pop()
 	v1 := m.pop()
-	if v1.i == v2.i {
-		m.push(value{-1})
-	} else {
-		m.push(value{0})
-	}
+	m.push(valueOfBool(v1.i == v2.i))
 }
 
 func Execute(m *machine) {
-	panic("Execute")
+	v := m.pop()
+	m.rsPush(v)
 }
 
 func Exit(m *machine) {
@@ -191,11 +204,19 @@ func HerePointer(m *machine) {
 }
 
 func IsHidden(m *machine) {
-	panic("IsHidden")
+	a := addrOfValue(m.pop()).offset(-1)
+	slot := m.lookupMem(a)
+	entry := AsEntry(slot)
+	b := entry.hidden
+	m.push(valueOfBool(b))
 }
 
 func IsImmediate(m *machine) {
-	panic("IsImmediate")
+	a := addrOfValue(m.pop()).offset(-1)
+	slot := m.lookupMem(a)
+	entry := AsEntry(slot)
+	b := entry.immediate
+	m.push(valueOfBool(b))
 }
 
 func Jump(m *machine) {
@@ -205,18 +226,24 @@ func Jump(m *machine) {
 }
 
 func Latest(m *machine) {
-	panic("Latest")
+	m.push(valueOfAddr(m.latest))
 }
 
 func LessThan(m *machine) {
-	panic("LessThan")
+	v2 := m.pop()
+	v1 := m.pop()
+	if v1.i < v2.i {
+		m.push(value{-1})
+	} else {
+		m.push(value{0})
+	}
 }
 
 func Lit(m *machine) {
 	a := addrOfValue(m.rsPop())
 	slot := m.lookupMem(a)
 	m.push(slot.toLiteral())
-	m.rsPush(valueOfAddr(a.next())) //AGGGH, was 2 and forgot to rs-push
+	m.rsPush(valueOfAddr(a.next()))
 }
 
 func Minus(m *machine) {
@@ -240,7 +267,11 @@ func One(m *machine) {
 }
 
 func Over(m *machine) {
-	panic("Over")
+	v2 := m.pop()
+	v1 := m.pop()
+	m.push(v1)
+	m.push(v2)
+	m.push(v1)
 }
 
 func RetComma(m *machine) {
@@ -261,21 +292,70 @@ func Swap(m *machine) {
 }
 
 func XtToName(m *machine) {
-	panic("XtToName")
-	/*(a := addrOfValue(m.pop()).offset(-1)
-	fmt.Printf("XtToName: %v\n", a)
+	a := addrOfValue(m.pop()).offset(-1)
 	slot := m.lookupMem(a)
-	entry, ok := slot.(entry)
-	if !ok {
-		panic("XtToName/non-entry")
-	}
-	m.push(valueOfAddr(entry.name))*/
+	entry := AsEntry(slot)
+	m.push(valueOfAddr(entry.name))
 }
 
 func XtToNext(m *machine) {
-	panic("XtToNext")
+	a := addrOfValue(m.pop()).offset(-1)
+	slot := m.lookupMem(a)
+	entry := AsEntry(slot)
+	m.push(valueOfAddr(entry.next))
 }
 
 func Zero(m *machine) {
 	m.push(value{0})
+}
+
+func FlipImmediate(m *machine) {
+	a := addrOfValue(m.pop()).offset(-1)
+	slot := m.lookupMem(a)
+	e := AsEntry(slot)
+	m.mem[a] = entry{e.name, e.next, e.hidden, !e.immediate}
+}
+
+func FlipHidden(m *machine) {
+	a := addrOfValue(m.pop()).offset(-1)
+	slot := m.lookupMem(a)
+	e := AsEntry(slot)
+	m.mem[a] = entry{e.name, e.next, !e.hidden, e.immediate}
+}
+
+func Branch(m *machine) {
+	a := addrOfValue(m.rsPop())
+	slot := m.lookupMem(a)
+	n := int(slot.toLiteral().i)
+	m.rsPush(valueOfAddr(a.offset(n)))
+}
+
+func Xor(m *machine) {
+	v2 := m.pop()
+	v1 := m.pop()
+	m.push(value{v1.i ^ v2.i})
+}
+
+func Crash(m *machine) {
+	panic("Crash")
+}
+
+func ToReturnStack(m *machine) {
+	panic("ToReturnStack")
+}
+
+func FromReturnStack(m *machine) {
+	panic("FromReturnStack")
+}
+
+func DivMod(m *machine) {
+	panic("DivMod")
+}
+
+func KeyNonBlocking(m *machine) {
+	panic("KeyNonBlocking")
+}
+
+func C_Store(m *machine) {
+	panic("C_Store")
 }
