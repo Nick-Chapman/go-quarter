@@ -48,7 +48,10 @@ type machine struct {
 	psPointer addr
 	rsPointer addr
 	steps     uint
+	echoOn	  bool
 }
+
+const psBase uint16 = 51000
 
 func newMachine(key, dispatch native) *machine {
 	mem := make(map[addr]slot)
@@ -64,9 +67,10 @@ func newMachine(key, dispatch native) *machine {
 		latest:    addr{0},
 		dt:        make(map[char]addr),
 		mem:       mem,
-		psPointer: addr{51000},
+		psPointer: addr{psBase},
 		rsPointer: addr{61000},
 		steps:     0,
+		echoOn:	   false,
 	}
 }
 
@@ -147,7 +151,7 @@ func (m *machine) comma(s slot) {
 	a := m.here()
 	//fmt.Printf("comma: %v = %s\n", a, s.viewSlot())
 	m.mem[a] = s
-	m.setHere(a.next())
+	m.setHere(a.offset(s.sizeSlot()))
 }
 
 func (m *machine) lookupDispatch(c char) addr {
@@ -191,10 +195,6 @@ func (m *machine) rsPop() value {
 	return slot.toLiteral()
 }
 
-func (a addr) next() addr {
-	return a.offset(1)
-}
-
 func (a addr) offset(n int) addr {
 	return addr{a.u + uint16(n)}
 }
@@ -231,6 +231,7 @@ type slot interface {
 	executeSlot(*machine, addr) addr
 	toLiteral() value
 	viewSlot() string
+	sizeSlot() int
 }
 
 // executeSlot...
@@ -245,11 +246,11 @@ func (x kdxLoop) executeSlot(m *machine, a addr) addr {
 func (p primitive) executeSlot(m *machine, a addr) addr {
 	//fmt.Printf("* %s\n", p.name)
 	p.action(m)
-	return a.next()
+	return a.offset(1)
 }
 
 func (call call) executeSlot(m *machine, a addr) addr {
-	m.rsPush(valueOfAddr(a.next()))
+	m.rsPush(valueOfAddr(a.offset(3)))
 	return call.addr
 }
 
@@ -257,8 +258,8 @@ func (ret) executeSlot(m *machine, a addr) addr {
 	return addrOfValue(m.rsPop())
 }
 
-func (value) executeSlot(*machine, addr) addr {
-	panic("value/execute")
+func (v value) executeSlot(*machine, addr) addr {
+	panic(fmt.Sprintf("value/execute: %v", v))
 }
 
 func (char) executeSlot(*machine, addr) addr {
@@ -328,6 +329,37 @@ func (v value) viewSlot() string {
 func (c char) viewSlot() string {
 	return fmt.Sprintf("char: %v", c)
 }
+
+
+
+func (kdxLoop) sizeSlot() int {
+	return 100
+}
+
+func (p primitive) sizeSlot() int {
+	return 1
+}
+
+func (call call) sizeSlot() int {
+	return 3
+}
+
+func (ret) sizeSlot() int {
+	return 1
+}
+
+func (e entry) sizeSlot() int {
+	return 1
+}
+
+func (v value) sizeSlot() int {
+	return 2
+}
+
+func (c char) sizeSlot() int {
+	return 1
+}
+
 
 // String...
 

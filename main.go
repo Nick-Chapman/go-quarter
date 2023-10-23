@@ -6,21 +6,26 @@ import "os"
 func main() {
 	fmt.Printf("*go-quarter*\n")
 
-	bs1, err := os.ReadFile("../quarter-forth/f/quarter.q")
-	if err != nil {
-		panic(err)
-	}
-	bs2, err := os.ReadFile("../quarter-forth/f/forth.f")
-	if err != nil {
-		panic(err)
-	}
-	bs := append(bs1, bs2...)
-	input := inputBytes{bs, 0}
+	prefix := "../quarter-forth/f/"
+
+	bytes := readFiles([]string{
+		prefix + "quarter.q",
+		prefix + "forth.f",
+		prefix + "tools.f",
+		prefix + "regression.f",
+		prefix + "examples.f",
+		prefix + "primes.f",
+		//prefix + "snake.f",
+		//prefix + "buffer.f",
+		prefix + "start.f",
+	})
+	input := inputBytes{bytes, 0}
 
 	Key := func(m *machine) {
 		c := input.getChar()
-		//fmt.Printf("Key: %v\n", c) //echo
-		//fmt.Printf("%c", c) //echo
+		if m.echoOn {
+			fmt.Printf("%c", c)
+		}
 		m.push(valueOfChar(c))
 	}
 
@@ -82,9 +87,41 @@ func main() {
 	m.installPrim("key?", KeyNonBlocking)
 	m.installPrim("c!", C_Store)
 
+	m.installPrim("/2", BitShiftRight)
+	m.installPrim("sp", Sp)
+	m.installPrim("sp0", Sp0)
+	m.installPrim("as-num", Nop)
+	m.installPrim("rsp", ReturnStackPointer)
+	m.installPrim("rsp0", ReturnStackPointerBase)
+	m.installPrim("get-key", GetKey)
+	//m.installPrim("time", Time)
+	m.installPrim("startup-is-complete", StartupIsComplete)
+	m.installPrim("echo-on", EchoOn)
+	//m.installPrim("echo-off", EchoOff)
+	//m.installPrim("echo-enabled", EchoEnabled)
+	//m.installPrim("set-cursor-shape",SetCursorShape)
+	//m.installPrim("set-cursor-position",SetCursorPosition)
+	//m.installPrim("read-char-col",ReadCharCol)
+	//m.installPrim("write-char-col",WriteCharCol)
+	//m.installPrim("cls",Cls)
+	//m.installPrim("KEY",KEY)
+	//m.in stallPrim("set-key",SetKey)
+
 	m.run()
 	fmt.Printf("\n*DONE*\n")
 	m.see()
+}
+
+func readFiles(files []string) []byte {
+	var acc []byte
+	for _, file := range files {
+		bs, err := os.ReadFile(file)
+		if err != nil {
+			panic(err)
+		}
+		acc = append(acc, bs...)
+	}
+	return acc
 }
 
 type inputBytes struct {
@@ -116,7 +153,7 @@ func Branch0(m *machine) {
 		n := int(slot.toLiteral().i)
 		m.rsPush(valueOfAddr(a.offset(n)))
 	} else {
-		m.rsPush(valueOfAddr(a.next()))
+		m.rsPush(valueOfAddr(a.offset(2)))
 	}
 }
 
@@ -243,7 +280,7 @@ func Lit(m *machine) {
 	a := addrOfValue(m.rsPop())
 	slot := m.lookupMem(a)
 	m.push(slot.toLiteral())
-	m.rsPush(valueOfAddr(a.next()))
+	m.rsPush(valueOfAddr(a.offset(2)))
 }
 
 func Minus(m *machine) {
@@ -341,15 +378,24 @@ func Crash(m *machine) {
 }
 
 func ToReturnStack(m *machine) {
-	panic("ToReturnStack")
+	b := m.rsPop()
+	a := m.pop()
+	m.rsPush(a)
+	m.rsPush(b)
 }
 
 func FromReturnStack(m *machine) {
-	panic("FromReturnStack")
+	b := m.rsPop()
+	a := m.rsPop()
+	m.push(a)
+	m.rsPush(b)
 }
 
 func DivMod(m *machine) {
-	panic("DivMod")
+	v2 := m.pop()
+	v1 := m.pop()
+	m.push(value{v1.i % v2.i})
+	m.push(value{v1.i / v2.i})
 }
 
 func KeyNonBlocking(m *machine) {
@@ -357,5 +403,81 @@ func KeyNonBlocking(m *machine) {
 }
 
 func C_Store(m *machine) {
-	panic("C_Store")
+	a := addrOfValue(m.pop())
+	c := charOfValue(m.pop())
+	m.mem[a] = c
+}
+
+func BitShiftRight(m *machine) {
+	v := m.pop()
+	m.push(value{v.i / 2})
+}
+
+func Sp(m *machine) {
+	m.push(valueOfAddr(m.psPointer))
+}
+
+func Sp0(m *machine) {
+	m.push(valueOfAddr(addr{psBase}))
+}
+
+func ReturnStackPointer(m *machine) {
+	panic("ReturnStackPointer")
+}
+
+func ReturnStackPointerBase(m *machine) {
+	panic("ReturnStackPointerBase")
+}
+
+func GetKey(m *machine) {
+	//panic("GetKey")
+	m.push(value{10000}) // TODO: NO!!
+}
+
+func Time(m *machine) {
+	panic("Time")
+}
+
+func StartupIsComplete(m *machine) {
+	fmt.Println("{StartupIsComplete}")
+}
+
+func EchoOn(m *machine) {
+	m.echoOn = true
+}
+
+func EchoOff(m *machine) {
+	panic("EchoOff")
+}
+
+func EchoEnabled(m *machine) {
+	panic("EchoEnabled")
+}
+
+func SetCursorShape(m *machine) {
+	panic("SetCursorShape")
+}
+
+func SetCursorPosition(m *machine) {
+	panic("SetCursorPosition")
+}
+
+func ReadCharCol(m *machine) {
+	panic("ReadCharCol")
+}
+
+func WriteCharCol(m *machine) {
+	panic("WriteCharCol")
+}
+
+func Cls(m *machine) {
+	panic("Cls")
+}
+
+func KEY(m *machine) {
+	panic("KEY")
+}
+
+func SetKey(m *machine) {
+	panic("SetKey")
 }
