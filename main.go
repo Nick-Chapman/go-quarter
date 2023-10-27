@@ -60,7 +60,8 @@ type inputBytes struct {
 
 func (x *inputBytes) getChar() char {
 	if x.n == len(x.bs) {
-		panic("EOF")
+		fmt.Printf("*EOF*\n")
+		os.Exit(0)
 	}
 	n := x.n
 	c := x.bs[n]

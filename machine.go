@@ -10,7 +10,7 @@ type primitive struct {
 }
 
 type value struct {
-	i int16
+	i uint16
 }
 
 type char byte
@@ -205,18 +205,18 @@ func isZero(v value) bool {
 
 func valueOfBool(b bool) value {
 	if b {
-		return value{-1}
+		return value{65535}
 	} else {
 		return value{0}
 	}
 }
 
 func valueOfChar(c char) value {
-	return value{int16(c)}
+	return value{uint16(c)}
 }
 
 func valueOfAddr(a addr) value {
-	return value{int16(a.u)}
+	return value{uint16(a.u)}
 }
 
 func charOfValue(v value) char {

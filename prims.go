@@ -205,8 +205,8 @@ func Latest(m *machine) {
 func LessThan(m *machine) {
 	v2 := m.pop()
 	v1 := m.pop()
-	if v1.i < v2.i {
-		m.push(value{-1})
+	if int16(v1.i) < int16(v2.i) {
+		m.push(value{65535})
 	} else {
 		m.push(value{0})
 	}
