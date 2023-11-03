@@ -120,7 +120,9 @@ func CR(m *machine) {
 }
 
 func CrashOnlyDuringStartup(m *machine) {
-	panic("CrashOnlyDuringStartup")
+	if !m.startupComplete {
+		panic("CrashOnlyDuringStartup")
+	}
 }
 
 func Dispatch(m *machine) {
@@ -366,7 +368,6 @@ func ReturnStackPointerBase(m *machine) {
 }
 
 func GetKey(m *machine) {
-	//panic("GetKey")
 	m.push(value{10000}) // TODO: NO!!
 }
 
@@ -375,7 +376,7 @@ func Time(m *machine) {
 }
 
 func StartupIsComplete(m *machine) {
-	fmt.Println("{StartupIsComplete}")
+	m.startupComplete = true
 }
 
 func EchoOn(m *machine) {

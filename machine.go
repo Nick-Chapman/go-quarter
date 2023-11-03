@@ -39,16 +39,17 @@ type kdxLoop struct {
 }
 
 type machine struct {
-	halt      addr
-	kdx       addr
-	hereP     addr
-	latest    addr
-	dt        map[char]addr
-	mem       map[addr]slot
-	psPointer addr
-	rsPointer addr
-	steps     uint
-	echoOn	  bool
+	halt            addr
+	kdx             addr
+	hereP           addr
+	latest          addr
+	dt              map[char]addr
+	mem             map[addr]slot
+	psPointer       addr
+	rsPointer       addr
+	steps           uint
+	echoOn          bool
+	startupComplete bool
 }
 
 const psBase uint16 = 51000
@@ -61,16 +62,17 @@ func newMachine(key, dispatch native) *machine {
 	mem[kdx] = kdxLoop{key, dispatch}
 	mem[hereP] = valueOfAddr(addr{100})
 	return &machine{
-		halt:      halt,
-		kdx:       kdx,
-		hereP:     hereP,
-		latest:    addr{0},
-		dt:        make(map[char]addr),
-		mem:       mem,
-		psPointer: addr{psBase},
-		rsPointer: addr{61000},
-		steps:     0,
-		echoOn:	   false,
+		halt:            halt,
+		kdx:             kdx,
+		hereP:           hereP,
+		latest:          addr{0},
+		dt:              make(map[char]addr),
+		mem:             mem,
+		psPointer:       addr{psBase},
+		rsPointer:       addr{61000},
+		steps:           0,
+		echoOn:          false,
+		startupComplete: false,
 	}
 }
 
@@ -330,8 +332,6 @@ func (c char) viewSlot() string {
 	return fmt.Sprintf("char: %v", c)
 }
 
-
-
 func (kdxLoop) sizeSlot() int {
 	return 100
 }
@@ -359,7 +359,6 @@ func (v value) sizeSlot() int {
 func (c char) sizeSlot() int {
 	return 1
 }
-
 
 // String...
 

@@ -15,9 +15,7 @@ func main() {
 		prefix + "regression.f",
 		prefix + "examples.f",
 		prefix + "primes.f",
-		//prefix + "snake.f",
-		//prefix + "buffer.f",
-		prefix + "start.f",
+		"go-start.forth",
 	})
 	input := inputBytes{bytes, 0}
 
