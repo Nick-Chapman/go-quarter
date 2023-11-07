@@ -2,21 +2,16 @@ package main
 
 import "fmt"
 import "os"
+import "strings"
+import "path/filepath"
 
 func main() {
 	fmt.Printf("*go-quarter*\n")
 
-	prefix := "../quarter-forth/f/"
+	listFile := "../quarter-forth/bbc.list" // TODO: from command line
+	files := readListFile(listFile)
 
-	bytes := readFiles([]string{
-		prefix + "quarter.q",
-		prefix + "forth.f",
-		prefix + "tools.f",
-		prefix + "regression.f",
-		prefix + "examples.f",
-		prefix + "primes.f",
-		"go-start.forth",
-	})
+	bytes := readFiles(files)
 	input := inputBytes{bytes, 0}
 
 	Key := func(m *machine) {
@@ -37,6 +32,24 @@ func main() {
 	m.run()
 	fmt.Printf("\n*DONE*\n")
 	m.see()
+}
+
+func readListFile(listFile string) []string {
+	bs, err := os.ReadFile(listFile)
+	if err != nil {
+		panic(err)
+	}
+	dir := filepath.Dir(listFile)
+	var acc []string
+	for _, line := range strings.Split(string(bs), "\n") {
+		words := strings.Split(line, "#")
+		filename := strings.TrimSpace(words[0])
+		if len(filename) > 0 {
+			prefixed := filepath.Join(dir, filename)
+			acc = append(acc, prefixed)
+		}
+	}
+	return acc
 }
 
 func readFiles(files []string) []byte {
