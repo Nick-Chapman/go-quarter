@@ -338,7 +338,8 @@ func DivMod(m *machine) {
 }
 
 func KeyNonBlocking(m *machine) {
-	panic("KeyNonBlocking")
+	m.push(value{0})
+	fmt.Println("{KeyNonBlocking}")
 }
 
 func C_Store(m *machine) {
@@ -373,7 +374,9 @@ func GetKey(m *machine) {
 }
 
 func Time(m *machine) {
-	panic("Time")
+	m.push(value{123})
+	m.push(value{456})
+	fmt.Println("{Time}")
 }
 
 func StartupIsComplete(m *machine) {
@@ -393,23 +396,29 @@ func EchoEnabled(m *machine) {
 }
 
 func SetCursorShape(m *machine) {
-	panic("SetCursorShape")
+	m.pop()
+	fmt.Println("{SetCursorShape}")
 }
 
 func SetCursorPosition(m *machine) {
-	panic("SetCursorPosition")
+	m.pop()
+	fmt.Println("{SetCursorPosition}")
 }
 
 func ReadCharCol(m *machine) {
-	panic("ReadCharCol")
+	m.push(value{1})
+	m.push(value{2})
+	fmt.Println("{ReadCharCol}")
 }
 
 func WriteCharCol(m *machine) {
-	panic("WriteCharCol")
+	m.pop()
+	m.pop()
+	fmt.Println("{WriteCharCol}")
 }
 
 func Cls(m *machine) {
-	panic("Cls")
+	fmt.Println("{Cls}")
 }
 
 func KEY(m *machine) {
@@ -425,7 +434,7 @@ func Fx(m *machine) {
 	m.pop()
 	m.pop()
 	m.pop()
-	fmt.Println("{fx}")
+	fmt.Println("{Fx}")
 }
 
 func Mode(m *machine) {
