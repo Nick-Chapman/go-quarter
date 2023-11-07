@@ -1,3 +1,7 @@
 
-run:
-	go run . ../quarter-forth/bbc.list
+default = bbc
+
+run: run-$(default)
+
+run-%:
+	go run . ../quarter-forth/$*.list

@@ -42,13 +42,13 @@ type machine struct {
 	halt            addr
 	kdx             addr
 	hereP           addr
+	echoEnabledP    addr
 	latest          addr
 	dt              map[char]addr
 	mem             map[addr]slot
 	psPointer       addr
 	rsPointer       addr
 	steps           uint
-	echoOn          bool
 	startupComplete bool
 }
 
@@ -59,19 +59,21 @@ func newMachine(key, dispatch native) *machine {
 	halt := addr{0}
 	kdx := addr{1}
 	hereP := addr{2}
+	echoEnabledP := addr{3}
 	mem[kdx] = kdxLoop{key, dispatch}
 	mem[hereP] = valueOfAddr(addr{100})
+	mem[echoEnabledP] = valueOfBool(false)
 	return &machine{
 		halt:            halt,
 		kdx:             kdx,
 		hereP:           hereP,
+		echoEnabledP:    echoEnabledP,
 		latest:          addr{0},
 		dt:              make(map[char]addr),
 		mem:             mem,
 		psPointer:       addr{psBase},
 		rsPointer:       addr{61000},
 		steps:           0,
-		echoOn:          false,
 		startupComplete: false,
 	}
 }
@@ -203,6 +205,10 @@ func (a addr) offset(n int) addr {
 
 func isZero(v value) bool {
 	return v.i == 0
+}
+
+func isTrue(v value) bool {
+	return v.i != 0
 }
 
 func valueOfBool(b bool) value {

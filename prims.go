@@ -46,33 +46,34 @@ func (m *machine) setupPrims(Key, SetTabEntry native) {
 	m.installPrim("/2", BitShiftRight)
 	m.installPrim("/mod", DivMod)
 	m.installPrim(">r", ToReturnStack)
+	m.installPrim("KEY",KEY)
 	m.installPrim("as-num", Nop)
 	m.installPrim("branch", Branch)
 	m.installPrim("c!", C_Store)
+	m.installPrim("cls",Cls)
 	m.installPrim("crash", Crash)
+	m.installPrim("echo-enabled", EchoEnabled)
+	m.installPrim("echo-off", EchoOff)
 	m.installPrim("echo-on", EchoOn)
+	m.installPrim("fx", Fx)
 	m.installPrim("get-key", GetKey)
 	m.installPrim("hidden^", FlipHidden)
 	m.installPrim("immediate^", FlipImmediate)
 	m.installPrim("key?", KeyNonBlocking)
+	m.installPrim("mode", Mode)
 	m.installPrim("r>", FromReturnStack)
+	m.installPrim("read-char-col",ReadCharCol)
 	m.installPrim("rsp", ReturnStackPointer)
 	m.installPrim("rsp0", ReturnStackPointerBase)
+	m.installPrim("set-cursor-position",SetCursorPosition)
+	m.installPrim("set-cursor-shape",SetCursorShape)
+	m.installPrim("set-key",SetKey)
 	m.installPrim("sp", Sp)
 	m.installPrim("sp0", Sp0)
 	m.installPrim("startup-is-complete", StartupIsComplete)
+	m.installPrim("time", Time)
+	m.installPrim("write-char-col",WriteCharCol)
 	m.installPrim("xor", Xor)
-
-	//m.installPrim("set-key",SetKey)
-	//m.installPrim("KEY",KEY)
-	//m.installPrim("cls",Cls)
-	//m.installPrim("echo-enabled", EchoEnabled)
-	//m.installPrim("echo-off", EchoOff)
-	//m.installPrim("read-char-col",ReadCharCol)
-	//m.installPrim("set-cursor-position",SetCursorPosition)
-	//m.installPrim("set-cursor-shape",SetCursorShape)
-	//m.installPrim("time", Time)
-	//m.installPrim("write-char-col",WriteCharCol)
 }
 
 func Add(m *machine) {
@@ -380,15 +381,15 @@ func StartupIsComplete(m *machine) {
 }
 
 func EchoOn(m *machine) {
-	m.echoOn = true
+	m.mem[m.echoEnabledP] = valueOfBool(true)
 }
 
 func EchoOff(m *machine) {
-	panic("EchoOff")
+	m.mem[m.echoEnabledP] = valueOfBool(false)
 }
 
 func EchoEnabled(m *machine) {
-	panic("EchoEnabled")
+	m.push(valueOfAddr(m.echoEnabledP))
 }
 
 func SetCursorShape(m *machine) {
@@ -416,5 +417,17 @@ func KEY(m *machine) {
 }
 
 func SetKey(m *machine) {
-	panic("SetKey")
+	m.pop()
+	fmt.Println("{SetKey}")
+}
+
+func Fx(m *machine) {
+	m.pop()
+	m.pop()
+	m.pop()
+	fmt.Println("{fx}")
+}
+
+func Mode(m *machine) {
+	panic("Mode")
 }

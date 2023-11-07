@@ -16,7 +16,7 @@ func main() {
 
 	Key := func(m *machine) {
 		c := input.getChar()
-		if m.echoOn {
+		if isTrue(m.lookupMem(m.echoEnabledP).toLiteral()) {
 			fmt.Printf("%c", c)
 		}
 		m.push(valueOfChar(c))
