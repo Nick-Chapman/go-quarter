@@ -8,7 +8,7 @@ import "path/filepath"
 func main() {
 	fmt.Printf("*go-quarter*\n")
 
-	listFile := "../quarter-forth/bbc.list" // TODO: from command line
+	listFile := os.Args[1]
 	files := readListFile(listFile)
 
 	bytes := readFiles(files)

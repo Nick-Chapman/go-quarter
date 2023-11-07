@@ -1,3 +1,3 @@
 
 run:
-	go run .
+	go run . ../quarter-forth/bbc.list
