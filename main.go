@@ -16,7 +16,7 @@ func main() {
 
 	Key := func(m *machine) {
 		c := input.getChar()
-		if isTrue(m.lookupMem(m.echoEnabledP).toLiteral()) {
+		if isTrue(m.readValue(m.echoEnabledP)) {
 			fmt.Printf("%c", c)
 		}
 		m.push(valueOfChar(c))
@@ -30,8 +30,6 @@ func main() {
 	m := newMachine(Key, Dispatch)
 	m.setupPrims(Key, SetTabEntry)
 	m.run()
-	fmt.Printf("\n*DONE*\n")
-	m.see()
 }
 
 func readListFile(listFile string) []string {

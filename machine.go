@@ -19,16 +19,13 @@ type addr struct {
 	u uint16
 }
 
-type ret struct {
+type rts struct {
 }
 
-type call struct {
-	addr addr
+type jsr struct {
 }
 
-type entry struct {
-	name      addr
-	next      addr
+type flags struct {
 	hidden    bool
 	immediate bool
 }
@@ -59,11 +56,8 @@ func newMachine(key, dispatch native) *machine {
 	halt := addr{0}
 	kdx := addr{1}
 	hereP := addr{2}
-	echoEnabledP := addr{3}
-	mem[kdx] = kdxLoop{key, dispatch}
-	mem[hereP] = valueOfAddr(addr{100})
-	mem[echoEnabledP] = valueOfBool(false)
-	return &machine{
+	echoEnabledP := addr{4}
+	m := machine{
 		halt:            halt,
 		kdx:             kdx,
 		hereP:           hereP,
@@ -76,6 +70,16 @@ func newMachine(key, dispatch native) *machine {
 		steps:           0,
 		startupComplete: false,
 	}
+	m.mem[kdx] = kdxLoop{key, dispatch}
+	m.setValue(hereP,valueOfAddr(addr{100}))
+	m.setValue(echoEnabledP,valueOfBool(false))
+	return &m
+
+}
+
+func (m *machine) setValue (a addr, v value) {
+	m.mem[a] = char(v.i % 256)
+	m.mem[a.offset(1)] = char(v.i / 256)
 }
 
 func (m *machine) run() { // the inner interpreter (aka trampoline!)
@@ -85,8 +89,6 @@ func (m *machine) run() { // the inner interpreter (aka trampoline!)
 			break
 		}
 		m.tick()
-		//m.see()
-		//fmt.Printf("addr=%v\n",a)
 		slot := m.lookupMem(a)
 		a = slot.executeSlot(m, a)
 	}
@@ -94,12 +96,6 @@ func (m *machine) run() { // the inner interpreter (aka trampoline!)
 
 func (m *machine) tick() {
 	m.steps++
-}
-
-func (m *machine) see() {
-	here := m.mem[m.hereP]
-	fmt.Printf("steps: %v, here: %v, ps: %v, rs: %v\n",
-		m.steps, here, m.psPointer, m.rsPointer)
 }
 
 func (m *machine) installQuarterPrim(c char, name string, action native) {
@@ -111,36 +107,29 @@ func (m *machine) installPrim(nameString string, action native) addr {
 	prim := &primitive{nameString, action}
 	name := m.here()
 	m.commaString(prim.name)
-	m.comma(entry{name, m.latest, false, false})
+	m.commaValue(valueOfAddr(name))
+	m.commaValue(valueOfAddr(m.latest))
+	m.comma(flags{false, false})
 	xt := m.here()
 	m.comma(prim)
-	m.comma(ret{})
 	m.latest = xt
 	return xt
 }
 
-func AsEntry(slot slot) entry {
-	entry, ok := slot.(entry)
+func AsFlags(slot slot) flags {
+	flags, ok := slot.(flags)
 	if !ok {
-		panic("AsEntry/non-entry")
+		panic("AsFlags/non-flags")
 	}
-	return entry
-}
-
-func AsChar(slot slot) char {
-	char, ok := slot.(char)
-	if !ok {
-		panic("AsChar/non-char")
-	}
-	return char
+	return flags
 }
 
 func (m *machine) here() addr {
-	return addrOfValue(m.mem[m.hereP].toLiteral())
+	return addrOfValue(m.readValue(m.hereP))
 }
 
 func (m *machine) setHere(a addr) {
-	m.mem[m.hereP] = valueOfAddr(a)
+	m.setValue(m.hereP, valueOfAddr(a))
 }
 
 func (m *machine) commaString(s string) {
@@ -151,11 +140,16 @@ func (m *machine) commaString(s string) {
 	m.comma(char(0))
 }
 
+func (m *machine) commaValue(v value) {
+	m.comma(char(v.i % 256))
+	m.comma(char(v.i / 256))
+}
+
 func (m *machine) comma(s slot) {
 	a := m.here()
 	//fmt.Printf("comma: %v = %s\n", a, s.viewSlot())
 	m.mem[a] = s
-	m.setHere(a.offset(s.sizeSlot()))
+	m.setHere(a.offset(1))
 }
 
 func (m *machine) lookupDispatch(c char) addr {
@@ -177,26 +171,32 @@ func (m *machine) lookupMem(a addr) slot {
 	return slot
 }
 
+func (m *machine) readValue(a addr) value {
+	lo := uint16(m.lookupMem(a).toChar())
+	hi := uint16(m.lookupMem(a.offset(1)).toChar())
+	return value{lo+256*hi}
+}
+
 func (m *machine) push(v value) {
 	m.psPointer = m.psPointer.offset(-2)
-	m.mem[m.psPointer] = v
+	m.setValue(m.psPointer, v)
 }
 
 func (m *machine) pop() value {
-	slot := m.lookupMem(m.psPointer)
+	v := m.readValue(m.psPointer)
 	m.psPointer = m.psPointer.offset(2)
-	return slot.toLiteral()
+	return v
 }
 
 func (m *machine) rsPush(v value) {
 	m.rsPointer = m.rsPointer.offset(-2)
-	m.mem[m.rsPointer] = v
+	m.setValue(m.rsPointer, v)
 }
 
 func (m *machine) rsPop() value {
-	slot := m.lookupMem(m.rsPointer)
+	v := m.readValue(m.rsPointer)
 	m.rsPointer = m.rsPointer.offset(2)
-	return slot.toLiteral()
+	return v
 }
 
 func (a addr) offset(n int) addr {
@@ -237,9 +237,8 @@ func addrOfValue(v value) addr {
 
 type slot interface {
 	executeSlot(*machine, addr) addr
-	toLiteral() value
 	viewSlot() string
-	sizeSlot() int
+	toChar() char
 }
 
 // executeSlot...
@@ -252,60 +251,62 @@ func (x kdxLoop) executeSlot(m *machine, a addr) addr {
 }
 
 func (p primitive) executeSlot(m *machine, a addr) addr {
-	//fmt.Printf("* %s\n", p.name)
 	p.action(m)
-	return a.offset(1)
-}
-
-func (call call) executeSlot(m *machine, a addr) addr {
-	m.rsPush(valueOfAddr(a.offset(3)))
-	return call.addr
-}
-
-func (ret) executeSlot(m *machine, a addr) addr {
 	return addrOfValue(m.rsPop())
 }
 
-func (v value) executeSlot(*machine, addr) addr {
-	panic(fmt.Sprintf("value/execute: %v", v))
+func (jsr) executeSlot(m *machine, a addr) addr {
+	m.rsPush(valueOfAddr(a.offset(3)))
+	return addrOfValue(m.readValue(a.offset(1)))
 }
 
-func (char) executeSlot(*machine, addr) addr {
+func (rts) executeSlot(m *machine, a addr) addr {
+	return addrOfValue(m.rsPop())
+}
+
+func (c char) executeSlot(m *machine, a addr) addr {
 	panic("char/execute")
 }
 
-func (entry) executeSlot(*machine, addr) addr {
-	panic("entry/execute")
+func (flags) executeSlot(*machine, addr) addr {
+	panic("flags/execute")
 }
 
-// toLiteral...
 
-func (kdxLoop) toLiteral() value {
-	panic("kdxLoop/toLiteral")
+// toChar...
+
+const jsrOpcode = 0xe8 // 0x20
+const rtsOpcode = 0xc3 // 0x60
+
+func (kdxLoop) toChar() char {
+	panic("kdxLoop/toChar")
 }
 
-func (primitive) toLiteral() value {
-	panic("primitive/toLiteral")
+func (primitive) toChar() char {
+	panic("primitive/toChar")
 }
 
-func (call) toLiteral() value {
-	panic("call/toLiteral")
+func (jsr) toChar() char {
+	return char(jsrOpcode)
 }
 
-func (ret) toLiteral() value {
-	panic("ret/toLiteral")
+func (rts) toChar() char {
+	return char(rtsOpcode)
 }
 
-func (entry) toLiteral() value {
-	panic("entry/toLiteral")
+func (f flags) toChar() char {
+	acc := 0
+	if f.immediate {
+		acc += 0x40
+	}
+	if f.hidden {
+		acc += 0x80
+	}
+	return char(acc)
 }
 
-func (c char) toLiteral() value {
-	panic("char/toLiteral")
-}
-
-func (v value) toLiteral() value {
-	return v
+func (c char) toChar() char {
+	return c
 }
 
 // viewSlot...
@@ -318,52 +319,20 @@ func (p primitive) viewSlot() string {
 	return fmt.Sprintf("prim: %s", p.name)
 }
 
-func (call call) viewSlot() string {
-	return fmt.Sprintf("call: %v", call.addr)
+func (jsr) viewSlot() string {
+	return "jsr"
 }
 
-func (ret) viewSlot() string {
-	return "ret"
+func (rts) viewSlot() string {
+	return "rts"
 }
 
-func (e entry) viewSlot() string {
-	return fmt.Sprintf("entry: name=%v, next=%v", e.name, e.next)
-}
-
-func (v value) viewSlot() string {
-	return fmt.Sprintf("value: %v", v)
+func (e flags) viewSlot() string {
+	return fmt.Sprintf("flags: immediate=%v, hidden=%v", e.immediate, e.hidden)
 }
 
 func (c char) viewSlot() string {
 	return fmt.Sprintf("char: %v", c)
-}
-
-func (kdxLoop) sizeSlot() int {
-	return 100
-}
-
-func (p primitive) sizeSlot() int {
-	return 1
-}
-
-func (call call) sizeSlot() int {
-	return 3
-}
-
-func (ret) sizeSlot() int {
-	return 1
-}
-
-func (e entry) sizeSlot() int {
-	return 1
-}
-
-func (v value) sizeSlot() int {
-	return 2
-}
-
-func (c char) sizeSlot() int {
-	return 1
 }
 
 // String...
@@ -373,5 +342,9 @@ func (addr addr) String() string {
 }
 
 func (c char) String() string {
-	return fmt.Sprintf("%d='%c'", c, c)
+	if c>=32 && c <=126 {
+		return fmt.Sprintf("%d='%c'", c, c)
+	} else {
+		return fmt.Sprintf("%d", c)
+	}
 }

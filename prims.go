@@ -46,11 +46,11 @@ func (m *machine) setupPrims(Key, SetTabEntry native) {
 	m.installPrim("/2", BitShiftRight)
 	m.installPrim("/mod", DivMod)
 	m.installPrim(">r", ToReturnStack)
-	m.installPrim("KEY",KEY)
+	m.installPrim("KEY", KEY)
 	m.installPrim("as-num", Nop)
 	m.installPrim("branch", Branch)
 	m.installPrim("c!", C_Store)
-	m.installPrim("cls",Cls)
+	m.installPrim("cls", Cls)
 	m.installPrim("crash", Crash)
 	m.installPrim("echo-enabled", EchoEnabled)
 	m.installPrim("echo-off", EchoOff)
@@ -62,17 +62,17 @@ func (m *machine) setupPrims(Key, SetTabEntry native) {
 	m.installPrim("key?", KeyNonBlocking)
 	m.installPrim("mode", Mode)
 	m.installPrim("r>", FromReturnStack)
-	m.installPrim("read-char-col",ReadCharCol)
+	m.installPrim("read-char-col", ReadCharCol)
 	m.installPrim("rsp", ReturnStackPointer)
 	m.installPrim("rsp0", ReturnStackPointerBase)
-	m.installPrim("set-cursor-position",SetCursorPosition)
-	m.installPrim("set-cursor-shape",SetCursorShape)
-	m.installPrim("set-key",SetKey)
+	m.installPrim("set-cursor-position", SetCursorPosition)
+	m.installPrim("set-cursor-shape", SetCursorShape)
+	m.installPrim("set-key", SetKey)
 	m.installPrim("sp", Sp)
 	m.installPrim("sp0", Sp0)
 	m.installPrim("startup-is-complete", StartupIsComplete)
 	m.installPrim("time", Time)
-	m.installPrim("write-char-col",WriteCharCol)
+	m.installPrim("write-char-col", WriteCharCol)
 	m.installPrim("xor", Xor)
 }
 
@@ -86,8 +86,9 @@ func Branch0(m *machine) {
 	a := addrOfValue(m.rsPop())
 	v := m.pop()
 	if isZero(v) {
-		slot := m.lookupMem(a)
-		n := int(slot.toLiteral().i)
+		//slot := m.lookupMem(a)
+		//n := int(slot.toLiteral().i)
+		n := int(m.readValue(a).i)
 		m.rsPush(valueOfAddr(a.offset(n)))
 	} else {
 		m.rsPush(valueOfAddr(a.offset(2)))
@@ -102,18 +103,19 @@ func C_Comma(m *machine) {
 func C_Fetch(m *machine) {
 	a := addrOfValue(m.pop())
 	slot := m.lookupMem(a)
-	char := AsChar(slot)
+	char := slot.toChar()
 	m.push(valueOfChar(char))
 }
 
 func Comma(m *machine) {
 	v := m.pop()
-	m.comma(v)
+	m.commaValue(v)
 }
 
 func CompileComma(m *machine) {
 	v := m.pop()
-	m.comma(call{addrOfValue(v)})
+	m.comma(jsr{})
+	m.commaValue(v)
 }
 
 func CR(m *machine) {
@@ -150,7 +152,9 @@ func Emit(m *machine) {
 
 func EntryComma(m *machine) {
 	v := m.pop()
-	m.comma(entry{addrOfValue(v), m.latest, false, false})
+	m.commaValue(v)
+	m.commaValue(valueOfAddr(m.latest))
+	m.comma(flags{false, false})
 	m.latest = m.here()
 }
 
@@ -171,8 +175,7 @@ func Exit(m *machine) {
 
 func Fetch(m *machine) {
 	a := addrOfValue(m.pop())
-	slot := m.lookupMem(a)
-	m.push(slot.toLiteral())
+	m.push(m.readValue(a))
 }
 
 func HerePointer(m *machine) {
@@ -182,16 +185,16 @@ func HerePointer(m *machine) {
 func IsHidden(m *machine) {
 	a := addrOfValue(m.pop()).offset(-1)
 	slot := m.lookupMem(a)
-	entry := AsEntry(slot)
-	b := entry.hidden
+	flags := AsFlags(slot)
+	b := flags.hidden
 	m.push(valueOfBool(b))
 }
 
 func IsImmediate(m *machine) {
 	a := addrOfValue(m.pop()).offset(-1)
 	slot := m.lookupMem(a)
-	entry := AsEntry(slot)
-	b := entry.immediate
+	flags := AsFlags(slot)
+	b := flags.immediate
 	m.push(valueOfBool(b))
 }
 
@@ -217,8 +220,7 @@ func LessThan(m *machine) {
 
 func Lit(m *machine) {
 	a := addrOfValue(m.rsPop())
-	slot := m.lookupMem(a)
-	m.push(slot.toLiteral())
+	m.push(m.readValue(a))
 	m.rsPush(valueOfAddr(a.offset(2)))
 }
 
@@ -251,13 +253,13 @@ func Over(m *machine) {
 }
 
 func RetComma(m *machine) {
-	m.comma(ret{})
+	m.comma(rts{})
 }
 
 func Store(m *machine) {
 	a := addrOfValue(m.pop())
 	v := m.pop()
-	m.mem[a] = v
+	m.setValue(a, v)
 }
 
 func Swap(m *machine) {
@@ -268,17 +270,13 @@ func Swap(m *machine) {
 }
 
 func XtToName(m *machine) {
-	a := addrOfValue(m.pop()).offset(-1)
-	slot := m.lookupMem(a)
-	entry := AsEntry(slot)
-	m.push(valueOfAddr(entry.name))
+	a := addrOfValue(m.pop()).offset(-5)
+	m.push(m.readValue(a))
 }
 
 func XtToNext(m *machine) {
-	a := addrOfValue(m.pop()).offset(-1)
-	slot := m.lookupMem(a)
-	entry := AsEntry(slot)
-	m.push(valueOfAddr(entry.next))
+	a := addrOfValue(m.pop()).offset(-3)
+	m.push(m.readValue(a))
 }
 
 func Zero(m *machine) {
@@ -288,21 +286,20 @@ func Zero(m *machine) {
 func FlipImmediate(m *machine) {
 	a := addrOfValue(m.pop()).offset(-1)
 	slot := m.lookupMem(a)
-	e := AsEntry(slot)
-	m.mem[a] = entry{e.name, e.next, e.hidden, !e.immediate}
+	e := AsFlags(slot)
+	m.mem[a] = flags{e.hidden, !e.immediate}
 }
 
 func FlipHidden(m *machine) {
 	a := addrOfValue(m.pop()).offset(-1)
 	slot := m.lookupMem(a)
-	e := AsEntry(slot)
-	m.mem[a] = entry{e.name, e.next, !e.hidden, e.immediate}
+	e := AsFlags(slot)
+	m.mem[a] = flags{!e.hidden, !e.immediate}
 }
 
 func Branch(m *machine) {
 	a := addrOfValue(m.rsPop())
-	slot := m.lookupMem(a)
-	n := int(slot.toLiteral().i)
+	n := int(m.readValue(a).i)
 	m.rsPush(valueOfAddr(a.offset(n)))
 }
 
@@ -362,7 +359,7 @@ func Sp0(m *machine) {
 }
 
 func ReturnStackPointer(m *machine) {
-	panic("ReturnStackPointer")
+	panic("ReturnStackPointer") // TODO: use rsPointer
 }
 
 func ReturnStackPointerBase(m *machine) {
@@ -384,11 +381,11 @@ func StartupIsComplete(m *machine) {
 }
 
 func EchoOn(m *machine) {
-	m.mem[m.echoEnabledP] = valueOfBool(true)
+	m.setValue(m.echoEnabledP, valueOfBool(true))
 }
 
 func EchoOff(m *machine) {
-	m.mem[m.echoEnabledP] = valueOfBool(false)
+	m.setValue(m.echoEnabledP, valueOfBool(false))
 }
 
 func EchoEnabled(m *machine) {
