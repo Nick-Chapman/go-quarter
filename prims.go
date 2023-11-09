@@ -4,8 +4,10 @@ import "fmt"
 
 func (m *machine) setupPrims(Key, SetTabEntry native) {
 
-	m.installQuarterPrim('\n', "NopNL", Nop)
-	m.installQuarterPrim(' ', "NopSpace", Nop)
+	m.installQuarterOnly('\n', "Nop", Nop)
+	m.installQuarterOnly(' ', "Nop", Nop)
+	m.installQuarterOnly(':', "SetTabEntry", SetTabEntry)
+
 	m.installQuarterPrim('!', "!", Store)
 	m.installQuarterPrim('*', "*", Mul)
 	m.installQuarterPrim('+', "+", Add)
@@ -14,12 +16,11 @@ func (m *machine) setupPrims(Key, SetTabEntry native) {
 	m.installQuarterPrim('.', "emit", Emit)
 	m.installQuarterPrim('0', "0", Zero)
 	m.installQuarterPrim('1', "1", One)
-	m.installQuarterPrim(':', "SetTabEntry", SetTabEntry)
 	m.installQuarterPrim(';', "ret,", RetComma)
 	m.installQuarterPrim('<', "<", LessThan)
 	m.installQuarterPrim('=', "=", Equal)
 	m.installQuarterPrim('>', "compile,", CompileComma)
-	m.installQuarterPrim('?', "Dispatch", Dispatch)
+	m.installQuarterPrim('?', "dispatch", Dispatch)
 	m.installQuarterPrim('@', "@", Fetch)
 	m.installQuarterPrim('A', "crash-only-during-startup", CrashOnlyDuringStartup)
 	m.installQuarterPrim('B', "0branch", Branch0)
@@ -46,11 +47,9 @@ func (m *machine) setupPrims(Key, SetTabEntry native) {
 	m.installPrim("/2", BitShiftRight)
 	m.installPrim("/mod", DivMod)
 	m.installPrim(">r", ToReturnStack)
-	m.installPrim("KEY", KEY)
 	m.installPrim("as-num", Nop)
 	m.installPrim("branch", Branch)
 	m.installPrim("c!", C_Store)
-	m.installPrim("cls", Cls)
 	m.installPrim("crash", Crash)
 	m.installPrim("echo-enabled", EchoEnabled)
 	m.installPrim("echo-off", EchoOff)
@@ -62,18 +61,21 @@ func (m *machine) setupPrims(Key, SetTabEntry native) {
 	m.installPrim("key?", KeyNonBlocking)
 	m.installPrim("mode", Mode)
 	m.installPrim("r>", FromReturnStack)
-	m.installPrim("read-char-col", ReadCharCol)
 	m.installPrim("rsp", ReturnStackPointer)
 	m.installPrim("rsp0", ReturnStackPointerBase)
-	m.installPrim("set-cursor-position", SetCursorPosition)
-	m.installPrim("set-cursor-shape", SetCursorShape)
 	m.installPrim("set-key", SetKey)
 	m.installPrim("sp", Sp)
 	m.installPrim("sp0", Sp0)
 	m.installPrim("startup-is-complete", StartupIsComplete)
 	m.installPrim("time", Time)
-	m.installPrim("write-char-col", WriteCharCol)
 	m.installPrim("xor", Xor)
+
+	//m.installPrim("KEY", KEY)
+	//m.installPrim("cls", Cls)
+	//m.installPrim("read-char-col", ReadCharCol)
+	//m.installPrim("set-cursor-position", SetCursorPosition)
+	//m.installPrim("set-cursor-shape", SetCursorShape)
+	//m.installPrim("write-char-col", WriteCharCol)
 }
 
 func Add(m *machine) {
@@ -86,8 +88,6 @@ func Branch0(m *machine) {
 	a := addrOfValue(m.rsPop())
 	v := m.pop()
 	if isZero(v) {
-		//slot := m.lookupMem(a)
-		//n := int(slot.toLiteral().i)
 		n := int(m.readValue(a).i)
 		m.rsPush(valueOfAddr(a.offset(n)))
 	} else {

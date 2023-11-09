@@ -36,6 +36,7 @@ type kdxLoop struct {
 }
 
 type machine struct {
+	locate          map[string]uint16
 	halt            addr
 	kdx             addr
 	hereP           addr
@@ -49,15 +50,17 @@ type machine struct {
 	startupComplete bool
 }
 
-const psBase uint16 = 51000
+const psBase uint16 = 0x90
 
-func newMachine(key, dispatch native) *machine {
+func newMachine(locate map[string]uint16, key, dispatch native) *machine {
+
 	mem := make(map[addr]slot)
 	halt := addr{0}
 	kdx := addr{1}
 	hereP := addr{2}
 	echoEnabledP := addr{4}
 	m := machine{
+		locate:          locate,
 		halt:            halt,
 		kdx:             kdx,
 		hereP:           hereP,
@@ -71,18 +74,18 @@ func newMachine(key, dispatch native) *machine {
 		startupComplete: false,
 	}
 	m.mem[kdx] = kdxLoop{key, dispatch}
-	m.setValue(hereP,valueOfAddr(addr{100}))
-	m.setValue(echoEnabledP,valueOfBool(false))
+	m.setHere(addr{100}) // for 2x Nop & SetTabEntry
+	m.setValue(echoEnabledP, valueOfBool(false))
 	return &m
-
 }
 
-func (m *machine) setValue (a addr, v value) {
+func (m *machine) setValue(a addr, v value) {
 	m.mem[a] = char(v.i % 256)
 	m.mem[a.offset(1)] = char(v.i / 256)
 }
 
-func (m *machine) run() { // the inner interpreter (aka trampoline!)
+func (m *machine) run(here_start addr) { // the inner interpreter (aka trampoline!)
+	m.setHere(here_start)
 	var a addr = m.kdx
 	for {
 		if a == m.halt {
@@ -98,16 +101,28 @@ func (m *machine) tick() {
 	m.steps++
 }
 
-func (m *machine) installQuarterPrim(c char, name string, action native) {
-	a := m.installPrim(name, action)
-	m.dt[c] = a
+func (m *machine) installQuarterOnly(c char, name string, action native) {
+	xt := m.here()
+	prim := &primitive{name, action}
+	m.comma(prim)
+	m.dt[c] = xt
 }
 
-func (m *machine) installPrim(nameString string, action native) addr {
-	prim := &primitive{nameString, action}
-	name := m.here()
-	m.commaString(prim.name)
-	m.commaValue(valueOfAddr(name))
+func (m *machine) installQuarterPrim(c char, name string, action native) {
+	xt := m.installPrim(name, action)
+	m.dt[c] = xt
+}
+
+func (m *machine) installPrim(name string, action native) addr {
+	at, ok := m.locate[name]
+	if !ok {
+		panic(fmt.Sprintf("installPrim: %v", name))
+	}
+	m.setHere(addr{at}.offset(-(len(name) + 6))) // null + 5 for dict entry
+	prim := &primitive{name, action}
+	nameP := m.here()
+	m.commaString(name)
+	m.commaValue(valueOfAddr(nameP))
 	m.commaValue(valueOfAddr(m.latest))
 	m.comma(flags{false, false})
 	xt := m.here()
@@ -174,7 +189,7 @@ func (m *machine) lookupMem(a addr) slot {
 func (m *machine) readValue(a addr) value {
 	lo := uint16(m.lookupMem(a).toChar())
 	hi := uint16(m.lookupMem(a.offset(1)).toChar())
-	return value{lo+256*hi}
+	return value{lo + 256*hi}
 }
 
 func (m *machine) push(v value) {
@@ -272,11 +287,10 @@ func (flags) executeSlot(*machine, addr) addr {
 	panic("flags/execute")
 }
 
-
 // toChar...
 
-const jsrOpcode = 0xe8 // 0x20
-const rtsOpcode = 0xc3 // 0x60
+const jsrOpcode = 0x20 // 0xe8
+const rtsOpcode = 0x60 // 0xc3
 
 func (kdxLoop) toChar() char {
 	panic("kdxLoop/toChar")
@@ -338,11 +352,11 @@ func (c char) viewSlot() string {
 // String...
 
 func (addr addr) String() string {
-	return fmt.Sprintf("[%d]", addr.u)
+	return fmt.Sprintf("[%x]", addr.u)
 }
 
 func (c char) String() string {
-	if c>=32 && c <=126 {
+	if c >= 32 && c <= 126 {
 		return fmt.Sprintf("%d='%c'", c, c)
 	} else {
 		return fmt.Sprintf("%d", c)
