@@ -1,0 +1,11 @@
+
+*run: play.exe z.list ../quarter-forth/f/quarter.q ../quarter-forth/f/forth.f ../quarter-forth/f/examples.f ../quarter-forth/app/z.f
+  ./play.exe z.list
+
+play.exe : link.cfg main.a
+  /usr/local/go/pkg/tool/linux_amd64/link -o $@ -importcfg link.cfg main.a
+
+include ../mentoring/go101/go.jenga
+
+main.a: compile.sh compile.cfg go.files @go.files
+  ./compile.sh -o $@ -p main $(cat go.files)
