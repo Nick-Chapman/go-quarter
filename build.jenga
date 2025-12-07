@@ -8,4 +8,4 @@ play.exe : link.cfg main.a
 include ../mentoring/go101/go.jenga
 
 main.a: compile.sh compile.cfg go.files @go.files
-  ./compile.sh -o $@ -p main $(cat go.files)
+  ./compile.sh -o $@ -p main $$(cat go.files)
